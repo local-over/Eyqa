@@ -22,6 +22,7 @@ class AgentOrchestrator {
   async runTurn({
     sessionId,
     messages,
+    userMessage,
     modeId = 'coworker',
     providerId = null,
     enableTools = true,
@@ -34,7 +35,7 @@ class AgentOrchestrator {
     signal
   }) {
     const config = this.configStore.get();
-    const effectiveProviderId = providerId || config.activeProviderId || 'gemini';
+    const effectiveProviderId = providerId || config.activeProviderId || 'openrouter';
     const workspace = config.workspacePath;
 
     let systemPrompt = getSystemPrompt(modeId, workspace);
@@ -42,7 +43,10 @@ class AgentOrchestrator {
       systemPrompt += '\n\nIMPORTANT: The user has explicitly enabled Web Grounding for this request. You MUST perform a web search to provide up-to-date and verified information before answering.';
     }
 
-    const conversationHistory = [...messages];
+    const conversationHistory = [...(messages || [])];
+    if (userMessage && !conversationHistory.some(m => m.role === 'user' && m.content === userMessage)) {
+      conversationHistory.push({ role: 'user', content: userMessage });
+    }
     const MAX_TOOL_STEPS = 4;
     let toolStep = 0;
 

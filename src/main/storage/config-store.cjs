@@ -92,15 +92,14 @@ const DEFAULT_PROVIDERS = {
     badge: 'Free Models Pool',
     badgeType: 'free',
     type: 'openai_compatible',
-    description: 'Unified router with dozens of completely free models (DeepSeek, Llama, Gemma).',
+    description: 'Unified router with dozens of completely free models (DeepSeek, Llama, Gemma, Nemotron).',
     apiKey: '',
     baseUrl: 'https://openrouter.ai/api/v1',
-    model: 'meta-llama/llama-3.3-70b-instruct:free',
+    model: 'openrouter/free',
     availableModels: [
-      { id: 'meta-llama/llama-3.3-70b-instruct:free', name: 'Llama 3.3 70B (Free)', free: true },
-      { id: 'deepseek/deepseek-r1:free', name: 'DeepSeek R1 (Free)', free: true },
-      { id: 'google/gemini-2.0-flash-exp:free', name: 'Gemini 2.0 Flash Exp (Free)', free: true },
-      { id: 'qwen/qwen-2.5-coder-32b-instruct:free', name: 'Qwen 2.5 Coder 32B (Free)', free: true }
+      { id: 'openrouter/free', name: 'OpenRouter Free Pool (Auto-Routed)', free: true },
+      { id: 'nvidia/nemotron-3.5-lightning:free', name: 'NVIDIA Nemotron 3.5 Lightning (Free)', free: true },
+      { id: 'dots-studio/dots-3-note-preview:free', name: 'Dots 3 Note Preview (Free)', free: true }
     ],
     setupGuide: {
       title: 'Get Free OpenRouter Key',
@@ -110,6 +109,32 @@ const DEFAULT_PROVIDERS = {
         'Paste the key here.'
       ],
       link: 'https://openrouter.ai/keys'
+    },
+    enabled: true
+  },
+  qwen: {
+    id: 'qwen',
+    name: 'Qwen Cloud (Alibaba)',
+    badge: 'High Speed',
+    badgeType: 'free',
+    type: 'openai_compatible',
+    description: 'Leading global Qwen model suite via international endpoint.',
+    apiKey: '',
+    baseUrl: 'https://dashscope-intl.aliyuncs.com/compatible-mode/v1',
+    model: 'qwen-plus',
+    availableModels: [
+      { id: 'qwen-plus', name: 'Qwen Plus (Fast & Intelligent)', free: true },
+      { id: 'qwen-turbo', name: 'Qwen Turbo (Instant)', free: true },
+      { id: 'qwen-max', name: 'Qwen Max (Deep Reasoning)', free: true }
+    ],
+    setupGuide: {
+      title: 'Qwen Model Studio Key',
+      steps: [
+        'Visit Alibaba Model Studio: https://dashscope-intl.aliyuncs.com',
+        'Create a free API key with complimentary welcome tokens.',
+        'Paste here and test.'
+      ],
+      link: 'https://dashscope-intl.aliyuncs.com'
     },
     enabled: true
   },
@@ -247,9 +272,9 @@ const DEFAULT_PROVIDERS = {
 
 const DEFAULT_CONFIG = {
   version: 1,
-  hasCompletedWizard: false,
-  activeProviderId: 'gemini',
-  fallbackOrder: ['gemini', 'groq', 'openrouter', 'nvidia_nim', 'fcc_proxy', 'ollama'],
+  hasCompletedWizard: true,
+  activeProviderId: 'openrouter',
+  fallbackOrder: ['openrouter', 'qwen', 'groq', 'nvidia_nim', 'gemini', 'fcc_proxy', 'ollama'],
   activeAgentMode: 'coworker', // coworker | web_researcher | file_manager | coder
   workspacePath: path.join(os.homedir(), 'Eyqa_Workspace'),
   autoWebSearch: true,
@@ -290,6 +315,9 @@ class ConfigStore {
         this.save();
       }
 
+      // Auto-import preconfigured keys from local machine (.fcc/.env, .hermes/.env)
+      this.importLocalConfigs();
+
       // Ensure workspace folder exists
       if (!fs.existsSync(this.config.workspacePath)) {
         fs.mkdirSync(this.config.workspacePath, { recursive: true });
@@ -297,6 +325,77 @@ class ConfigStore {
     } catch (err) {
       console.error('[ConfigStore] Failed to initialize config, using defaults:', err);
       this.config = JSON.parse(JSON.stringify(DEFAULT_CONFIG));
+    }
+  }
+
+  importLocalConfigs() {
+    try {
+      const candidates = [
+        path.join(os.homedir(), '.fcc', '.env'),
+        path.join(os.homedir(), '.hermes', '.env'),
+        path.join(process.cwd(), '.env')
+      ];
+
+      for (const envPath of candidates) {
+        if (fs.existsSync(envPath)) {
+          const content = fs.readFileSync(envPath, 'utf8');
+          const lines = content.split('\n');
+          for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed || trimmed.startsWith('#')) continue;
+            const eqIdx = trimmed.indexOf('=');
+            if (eqIdx === -1) continue;
+            const key = trimmed.slice(0, eqIdx).trim();
+            const val = trimmed.slice(eqIdx + 1).trim().replace(/^["']|["']$/g, '');
+
+            if (!val) continue;
+
+            if (key === 'OPENROUTER_API_KEY' && this.config.providers.openrouter) {
+              this.config.providers.openrouter.apiKey = val;
+              this.config.providers.openrouter.enabled = true;
+              this.config.providers.openrouter.model = 'openrouter/free';
+            }
+            if (key === 'QWENCLOUD_API_KEY' && this.config.providers.qwen) {
+              this.config.providers.qwen.apiKey = val;
+              this.config.providers.qwen.enabled = true;
+            }
+            if (key === 'GROQ_API_KEY' && this.config.providers.groq) {
+              this.config.providers.groq.apiKey = val;
+              this.config.providers.groq.enabled = true;
+            }
+            if (key === 'NVIDIA_NIM_API_KEY' && this.config.providers.nvidia_nim) {
+              this.config.providers.nvidia_nim.apiKey = val;
+              this.config.providers.nvidia_nim.enabled = true;
+            }
+            if ((key === 'GEMINI_API_KEY' || key === 'GOOGLE_API_KEY') && this.config.providers.gemini) {
+              this.config.providers.gemini.apiKey = val;
+              this.config.providers.gemini.enabled = true;
+            }
+          }
+        }
+      }
+
+      // If current active provider has an empty or invalid key, auto-switch to a verified working one
+      const currentActive = this.config.providers[this.config.activeProviderId];
+      if (!currentActive || !currentActive.apiKey?.trim()) {
+        const workingProvider = ['openrouter', 'qwen', 'groq', 'nvidia_nim', 'gemini'].find(
+          id => this.config.providers[id] && this.config.providers[id].apiKey?.trim()
+        );
+        if (workingProvider) {
+          this.config.activeProviderId = workingProvider;
+        }
+      }
+
+      // Ensure openrouter default model is openrouter/free
+      if (this.config.providers.openrouter) {
+        if (!this.config.providers.openrouter.model || this.config.providers.openrouter.model.includes('llama-3.3-70b-instruct:free')) {
+          this.config.providers.openrouter.model = 'openrouter/free';
+        }
+      }
+
+      this.save();
+    } catch (err) {
+      console.warn('[ConfigStore] Note: Could not import local env configs:', err.message);
     }
   }
 

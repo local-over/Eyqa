@@ -45,7 +45,7 @@
   margin: 12px 0;
   padding: 8px 16px;
   border-left: 3px solid var(--accent-primary);
-  background: rgba(99, 102, 241, 0.05);
+  background: rgba(255, 255, 255, 0.04);
   border-radius: 0 8px 8px 0;
   color: var(--text-secondary);
   font-style: italic;
@@ -66,7 +66,7 @@
   background: rgba(255, 255, 255, 0.08);
   padding: 2px 6px;
   border-radius: 4px;
-  color: #a5b4fc;
+  color: #e0e0e0;
 }
 
 .md-link {
@@ -89,7 +89,7 @@
 /* Code Block Cards */
 .code-block-card {
   margin: 14px 0;
-  background: #05070a;
+  background: #141414;
   border: 1px solid var(--border-subtle);
   border-radius: 10px;
   overflow: hidden;
@@ -100,7 +100,7 @@
   align-items: center;
   justify-content: space-between;
   padding: 6px 14px;
-  background: #0d1117;
+  background: #1c1c1c;
   border-bottom: 1px solid var(--border-subtle);
   user-select: none;
 }

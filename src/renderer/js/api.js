@@ -157,21 +157,33 @@ export const api = {
         buffer = lines.pop() || '';
 
         let currentEvent = 'message';
+        let doneResult = null;
+        let errorMessage = null;
+
         for (const line of lines) {
           if (line.startsWith('event: ')) {
             currentEvent = line.slice(7).trim();
           } else if (line.startsWith('data: ')) {
-            const data = JSON.parse(line.slice(6));
-            if (currentEvent === 'token' && handlers.onToken) handlers.onToken(data);
-            if (currentEvent === 'thought' && handlers.onThought) handlers.onThought(data);
-            if (currentEvent === 'tool-start' && handlers.onToolStart) handlers.onToolStart(data);
-            if (currentEvent === 'tool-result' && handlers.onToolResult) handlers.onToolResult(data);
-            if (currentEvent === 'fallback' && handlers.onFallback) handlers.onFallback(data);
+            try {
+              const data = JSON.parse(line.slice(6));
+              if (currentEvent === 'token' && handlers.onToken) handlers.onToken(data);
+              else if (currentEvent === 'thought' && handlers.onThought) handlers.onThought(data);
+              else if (currentEvent === 'tool-start' && handlers.onToolStart) handlers.onToolStart(data);
+              else if (currentEvent === 'tool-result' && handlers.onToolResult) handlers.onToolResult(data);
+              else if (currentEvent === 'fallback' && handlers.onFallback) handlers.onFallback(data);
+              else if (currentEvent === 'done') doneResult = data;
+              else if (currentEvent === 'error') errorMessage = data;
+            } catch (e) {
+              // Ignore non-json chunk
+            }
           }
         }
       }
 
-      return { success: true };
+      if (errorMessage) {
+        return { success: false, error: errorMessage };
+      }
+      return { success: true, result: doneResult };
     }
   },
 

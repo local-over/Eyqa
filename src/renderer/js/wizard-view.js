@@ -16,7 +16,7 @@ export class WizardView {
     this.currentStep = 1; // 1 to 6
     this.totalSteps = 6;
     this.selectedPath = 'free'; // 'free' | 'fcc' | 'paid' | 'local'
-    this.selectedFreeProvider = 'gemini'; // 'gemini' | 'groq' | 'nvidia_nim' | 'openrouter'
+    this.selectedFreeProvider = 'openrouter'; // 'openrouter' | 'qwen' | 'gemini' | 'groq' | 'nvidia_nim'
     this.selectedPersona = 'coworker';
     this.webGrounding = true;
     this.testState = { testing: false, success: null, latency: 0, error: null };
@@ -243,17 +243,20 @@ export class WizardView {
 
           <!-- Provider Tabs -->
           <div class="wizard-prov-selector-tabs">
+            <button class="prov-pill-tab ${currentProviderId === 'openrouter' ? 'active' : ''}" data-prov="openrouter">
+              OpenRouter Free (Verified)
+            </button>
+            <button class="prov-pill-tab ${currentProviderId === 'qwen' ? 'active' : ''}" data-prov="qwen">
+              Qwen Cloud (Alibaba)
+            </button>
             <button class="prov-pill-tab ${currentProviderId === 'gemini' ? 'active' : ''}" data-prov="gemini">
-              Google Gemini (Top Pick)
+              Google Gemini
             </button>
             <button class="prov-pill-tab ${currentProviderId === 'groq' ? 'active' : ''}" data-prov="groq">
               Groq (Ultra-Fast)
             </button>
             <button class="prov-pill-tab ${currentProviderId === 'nvidia_nim' ? 'active' : ''}" data-prov="nvidia_nim">
               NVIDIA NIM
-            </button>
-            <button class="prov-pill-tab ${currentProviderId === 'openrouter' ? 'active' : ''}" data-prov="openrouter">
-              OpenRouter Free Pool
             </button>
           </div>
 

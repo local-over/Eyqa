@@ -23,9 +23,9 @@ class ProviderManager {
     const order = customOrder || config.fallbackOrder || [];
     const providers = [];
 
-    // Add primary first if valid
+    // Add primary first if valid and has apiKey or is local
     const primary = config.providers[primaryId];
-    if (primary && primary.enabled) {
+    if (primary && primary.enabled && (primary.apiKey?.trim() || primary.id === 'ollama' || primary.id === 'fcc_proxy')) {
       providers.push(primary);
     }
 
@@ -33,7 +33,7 @@ class ProviderManager {
     for (const id of order) {
       if (id !== primaryId) {
         const p = config.providers[id];
-        if (p && p.enabled && (p.apiKey || id === 'ollama')) {
+        if (p && p.enabled && (p.apiKey?.trim() || p.id === 'ollama' || p.id === 'fcc_proxy')) {
           providers.push(p);
         }
       }

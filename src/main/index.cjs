@@ -35,7 +35,7 @@ function createWindow() {
     minWidth: 980,
     minHeight: 640,
     title: 'Eyqa - The AI Coworker',
-    backgroundColor: '#0a0d14',
+    backgroundColor: '#111111',
     show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),
