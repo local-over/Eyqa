@@ -9,6 +9,7 @@ import { api } from './api.js';
 import { ChatView } from './chat-view.js';
 import { CanvasView } from './canvas-view.js';
 import { SettingsView } from './settings-view.js';
+import { WizardView } from './wizard-view.js';
 
 class EyqaApp {
   constructor() {
@@ -23,6 +24,7 @@ class EyqaApp {
     this.chatView = null;
     this.canvasView = null;
     this.settingsView = null;
+    this.wizardView = null;
   }
 
   async init() {
@@ -35,6 +37,8 @@ class EyqaApp {
     const canvasContainer = document.getElementById('coworkerCanvasContainer');
     const settingsModal = document.getElementById('settingsModal');
 
+    const wizardModal = document.getElementById('wizardModal');
+
     this.canvasView = new CanvasView(canvasContainer, (msg, type) => this.showToast(msg, type));
     this.chatView = new ChatView(
       chatContainer,
@@ -45,6 +49,11 @@ class EyqaApp {
       settingsModal,
       (msg, type) => this.showToast(msg, type),
       (newSettings) => this.onSettingsUpdated(newSettings)
+    );
+    this.wizardView = new WizardView(
+      wizardModal,
+      (msg, type) => this.showToast(msg, type),
+      (newSettings, starterPrompt) => this.onWizardCompleted(newSettings, starterPrompt)
     );
 
     // 3. Load Sessions
@@ -65,6 +74,14 @@ class EyqaApp {
     }
 
     this.updateStatusPills();
+
+    // 6. Auto-launch Setup Wizard if first run
+    const hasAnyKey = Object.values(this.settings.providers || {}).some(p => p.apiKey && p.enabled && p.id !== 'ollama' && p.id !== 'fcc_proxy');
+    if (!this.settings.hasCompletedWizard && !hasAnyKey) {
+      setTimeout(() => {
+        this.wizardView.open();
+      }, 400);
+    }
   }
 
   async loadSessions() {
@@ -183,9 +200,7 @@ class EyqaApp {
     });
 
     document.getElementById('btnFreeAiGuide')?.addEventListener('click', () => {
-      this.settingsView.open();
-      this.settingsView.activeTab = 'free';
-      this.settingsView.render();
+      this.wizardView.open();
     });
   }
 
@@ -200,6 +215,10 @@ class EyqaApp {
   }
 
   setupTopBar() {
+    document.getElementById('btnOpenWizard')?.addEventListener('click', () => {
+      this.wizardView.open();
+    });
+
     document.getElementById('btnToggleCanvas')?.addEventListener('click', () => {
       const open = this.canvasView.toggle();
       const btn = document.getElementById('btnToggleCanvas');
@@ -332,10 +351,8 @@ class EyqaApp {
         const cmd = e.currentTarget.dataset.command;
         popover.hidden = true;
 
-        if (cmd === '/free-setup') {
-          this.settingsView.open();
-          this.settingsView.activeTab = 'free';
-          this.settingsView.render();
+        if (cmd === '/free-setup' || cmd === '/wizard') {
+          this.wizardView.open();
           textarea.value = '';
           return;
         }
@@ -497,6 +514,7 @@ class EyqaApp {
       // Escape: close modals & popovers
       if (e.key === 'Escape') {
         this.settingsView.close();
+        this.wizardView?.close();
         const popover = document.getElementById('slashMenuPopover');
         if (popover) popover.hidden = true;
       }
@@ -508,6 +526,22 @@ class EyqaApp {
     this.updateTopBar();
     this.updateStatusPills();
     this._updateWorkspaceLabel();
+  }
+
+  onWizardCompleted(newSettings, starterPrompt = null) {
+    this.settings = newSettings;
+    this.updateTopBar();
+    this.updateStatusPills();
+    this._updateWorkspaceLabel();
+    this.showToast('✨ Eyqa is configured and ready!', 'success');
+
+    if (starterPrompt) {
+      const input = document.getElementById('chatInputTextarea');
+      if (input) {
+        input.value = starterPrompt;
+        setTimeout(() => this.submitMessage(), 250);
+      }
+    }
   }
 
   showToast(message, type = 'info') {

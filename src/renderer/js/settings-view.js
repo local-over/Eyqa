@@ -79,7 +79,7 @@ export class SettingsView {
 
   _renderTabContent() {
     if (this.activeTab === 'free') {
-      const freeProviders = ['gemini', 'groq', 'openrouter', 'nvidia_nim', 'ollama'];
+      const freeProviders = ['gemini', 'groq', 'openrouter', 'nvidia_nim', 'fcc_proxy', 'ollama'];
       return `
         <div class="settings-provider-list">
           <div class="settings-banner">

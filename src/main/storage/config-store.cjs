@@ -214,13 +214,42 @@ const DEFAULT_PROVIDERS = {
       link: 'https://platform.deepseek.com/api_keys'
     },
     enabled: false
+  },
+  fcc_proxy: {
+    id: 'fcc_proxy',
+    name: 'Free Claude Code (FCC)',
+    badge: 'FCC Engine Proxy',
+    badgeType: 'free',
+    type: 'openai_compatible',
+    description: 'Connects directly to your local Free Claude Code proxy server (fcc-server) on port 8082.',
+    apiKey: 'fcc',
+    baseUrl: 'http://localhost:8082/v1',
+    model: 'nvidia_nim/nvidia/nemotron-3-super-120b-a12b',
+    availableModels: [
+      { id: 'nvidia_nim/nvidia/nemotron-3-super-120b-a12b', name: 'NVIDIA Nemotron 3 Super 120B (FCC Free)', free: true },
+      { id: 'open_router/openrouter/free', name: 'OpenRouter Free Pool (FCC Free)', free: true },
+      { id: 'groq/llama-3.3-70b-versatile', name: 'Groq Llama 3.3 70B (FCC Free)', free: true },
+      { id: 'gemini/gemini-2.0-flash', name: 'Google Gemini 2.0 Flash (FCC Free)', free: true },
+      { id: 'deepseek/deepseek-chat', name: 'DeepSeek V3 (FCC)', free: true }
+    ],
+    setupGuide: {
+      title: 'Connect to Free Claude Code (FCC)',
+      steps: [
+        'Run fcc-server in your terminal (or start the FCC Desktop tray app).',
+        'Eyqa connects to the FCC translation proxy at http://localhost:8082.',
+        'Enjoy 1.3B+ monthly tokens and 60 provider integrations.'
+      ],
+      link: 'https://github.com/alishahryar1/free-claude-code'
+    },
+    enabled: true
   }
 };
 
 const DEFAULT_CONFIG = {
   version: 1,
+  hasCompletedWizard: false,
   activeProviderId: 'gemini',
-  fallbackOrder: ['gemini', 'groq', 'openrouter', 'nvidia_nim', 'ollama'],
+  fallbackOrder: ['gemini', 'groq', 'openrouter', 'nvidia_nim', 'fcc_proxy', 'ollama'],
   activeAgentMode: 'coworker', // coworker | web_researcher | file_manager | coder
   workspacePath: path.join(os.homedir(), 'Eyqa_Workspace'),
   autoWebSearch: true,
