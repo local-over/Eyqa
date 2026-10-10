@@ -405,7 +405,12 @@ class ConfigStore {
     if (user.providers) {
       for (const [k, p] of Object.entries(user.providers)) {
         if (result.providers[k]) {
-          result.providers[k] = { ...result.providers[k], ...p };
+          result.providers[k] = {
+            ...result.providers[k],
+            ...p,
+            availableModels: def.providers[k]?.availableModels || p.availableModels,
+            baseUrl: def.providers[k]?.baseUrl || p.baseUrl
+          };
         } else {
           result.providers[k] = p;
         }
