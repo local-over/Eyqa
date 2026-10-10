@@ -166,6 +166,14 @@ class EyqaApp {
       this.createNewSession();
     });
 
+    document.getElementById('btnHeaderNewChat')?.addEventListener('click', () => {
+      this.createNewSession();
+    });
+
+    document.getElementById('brandHomeLink')?.addEventListener('click', () => {
+      this.createNewSession();
+    });
+
     const modeSelect = document.getElementById('sidebarModeSelect');
     if (modeSelect) {
       modeSelect.value = this.settings.activeAgentMode || 'coworker';

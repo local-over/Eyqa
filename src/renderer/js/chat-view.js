@@ -50,9 +50,9 @@ export class ChatView {
         <div class="welcome-mascot-box">
           <img src="assets/eyqa-logo.png" alt="Eyqa" class="welcome-mascot-img" />
         </div>
-        <h2 class="welcome-hero-title">meet eyqa, your ai coworker.</h2>
+        <h2 class="welcome-hero-title">What can Eyqa help with today?</h2>
         <p class="welcome-hero-subtitle">
-          Designed for everyday work. Ask questions, research the live web, draft executive proposals, and organize local documents without writing code.
+          Your everyday AI coworker. Powered by free model tiers & live web search.
         </p>
 
         <div class="starter-cards-grid">
