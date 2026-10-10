@@ -4,7 +4,7 @@
  * streaming thought & content tokens, and error handling.
  */
 
-const { getSystemPrompt } = require('./prompts.cjs');
+const { WEB_TOOL_SCHEMAS, TOOL_SCHEMAS } = require('./providers/base.cjs');
 const { searchWeb } = require('./tools/web-search.cjs');
 const { fetchWebpage } = require('./tools/web-fetch.cjs');
 const {
@@ -23,7 +23,8 @@ class AgentOrchestrator {
     sessionId,
     messages,
     userMessage,
-    modeId = 'coworker',
+    folderPath = null,
+    modeId = 'chat',
     providerId = null,
     enableTools = true,
     forceWebSearch = false,
@@ -36,11 +37,27 @@ class AgentOrchestrator {
   }) {
     const config = this.configStore.get();
     const effectiveProviderId = providerId || config.activeProviderId || 'openrouter';
-    const workspace = config.workspacePath;
 
-    let systemPrompt = getSystemPrompt(modeId, workspace);
+    // Mental Model: Pure Chat vs Folder Project
+    const effectiveFolder = folderPath && folderPath.trim() ? folderPath.trim() : null;
+    let systemPrompt = '';
+    let customTools = WEB_TOOL_SCHEMAS;
+
+    if (effectiveFolder) {
+      systemPrompt = `You are Eyqa, an exceptionally capable, fast AI coworker assisting with files and projects.
+You are working directly inside the local project directory: "${effectiveFolder}".
+You have tools to list files, read code/docs, and create/update files in this directory.
+When creating or modifying files, make sure your changes are clean and complete.`;
+      customTools = TOOL_SCHEMAS;
+    } else {
+      systemPrompt = `You are Eyqa, an extraordinarily capable, fast, and helpful AI assistant built for everyday users.
+You speak with clarity, intelligence, and natural human tone. Never use unnecessary AI fluff or patronizing language.
+You have real-time web search tools to look up facts, documentation, current events, and live information when needed.`;
+      customTools = WEB_TOOL_SCHEMAS;
+    }
+
     if (forceWebSearch) {
-      systemPrompt += '\n\nIMPORTANT: The user has explicitly enabled Web Grounding for this request. You MUST perform a web search to provide up-to-date and verified information before answering.';
+      systemPrompt += '\n\nIMPORTANT: Web Grounding is active. You MUST call web_search to find up-to-date and verified information before answering.';
     }
 
     const conversationHistory = [...(messages || [])];
@@ -63,6 +80,7 @@ class AgentOrchestrator {
         messages: conversationHistory,
         systemPrompt,
         enableTools,
+        customTools,
         onToken: (tok) => {
           accumulatedContent += tok;
           if (onToken) onToken(tok);
@@ -108,7 +126,7 @@ class AgentOrchestrator {
 
         let output;
         try {
-          output = await this._executeTool(call.name, call.arguments, workspace);
+          output = await this._executeTool(call.name, call.arguments, effectiveFolder);
         } catch (err) {
           output = { error: err.message };
         }
@@ -167,16 +185,19 @@ class AgentOrchestrator {
       }
 
       case 'workspace_list': {
+        if (!workspacePath) return { error: 'No project folder linked to this chat. Link a folder to inspect files.' };
         const sub = args?.subDirectory || '';
         return listWorkspace(workspacePath, sub);
       }
 
       case 'workspace_read_file': {
+        if (!workspacePath) return { error: 'No project folder linked to this chat. Link a folder to read files.' };
         const fp = args?.filePath || '';
         return readWorkspaceFile(workspacePath, fp);
       }
 
       case 'workspace_write_file': {
+        if (!workspacePath) return { error: 'No project folder linked to this chat. Link a folder to save files.' };
         const fp = args?.filePath || '';
         const content = args?.content || '';
         return writeWorkspaceFile(workspacePath, fp, content);

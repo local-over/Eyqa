@@ -11,6 +11,7 @@ async function streamOpenAICompatible({
   messages,
   systemPrompt,
   enableTools = true,
+  customTools = null,
   onToken,
   onThought,
   onToolCall,
@@ -50,7 +51,7 @@ async function streamOpenAICompatible({
   };
 
   if (enableTools) {
-    payload.tools = TOOL_SCHEMAS;
+    payload.tools = customTools || TOOL_SCHEMAS;
     payload.tool_choice = 'auto';
   }
 

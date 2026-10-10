@@ -3,153 +3,113 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eyqa - The Everyday AI Coworker</title>
+  <title>Eyqa</title>
   <link rel="icon" type="image/png" href="assets/eyqa-logo.png">
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/markdown.css">
-  <link rel="stylesheet" href="css/canvas.css">
-  <link rel="stylesheet" href="css/wizard.css">
 </head>
 <body class="theme-dark">
   <div class="app-layout">
-    <!-- Left Sidebar (Antigravity Style) -->
-    <aside class="app-sidebar">
-      <!-- Brand Header with Official Eyqa Mascot Logo -->
-      <div class="sidebar-brand-row">
-        <div class="brand-group" id="brandHomeLink" title="Eyqa Coworker">
-          <div class="brand-avatar-box">
-            <img src="assets/eyqa-logo.png" alt="Eyqa" class="brand-avatar-img" />
-          </div>
-          <div class="brand-titles">
-            <h1 class="brand-name">eyqa</h1>
-          </div>
+    <!-- Left Sidebar (Clean ChatGPT / Claude Desktop Style) -->
+    <aside class="app-sidebar" id="appSidebar">
+      <!-- Sidebar Header -->
+      <div class="sidebar-header">
+        <div class="brand-item" id="brandHomeLink" title="Eyqa">
+          <img src="assets/eyqa-logo.png" alt="Eyqa" class="brand-logo" />
+          <span class="brand-name">eyqa</span>
         </div>
-        <button id="btnHeaderNewChat" class="sidebar-icon-action-btn" title="New Chat (Ctrl+N)">
+        <button id="btnNewChat" class="btn-new-chat-action" title="New Chat (Ctrl+N)">
           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          <span>New Chat</span>
         </button>
       </div>
 
-      <!-- New Chat Action Button -->
-      <div class="sidebar-action-section">
-        <button id="btnNewChat" class="primary-btn-new-chat">
-          <div class="btn-new-chat-left">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            <span>New Chat</span>
+      <!-- Navigation & Lists Container -->
+      <div class="sidebar-scroll-area">
+        <!-- Section 1: Standard Conversations (When we just chat) -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span class="sidebar-section-title">CHATS</span>
           </div>
-          <kbd class="shortcut-kbd">Ctrl+N</kbd>
+          <div class="sidebar-items-list" id="sidebarChatsList">
+            <div class="loading-spinner">Loading chats...</div>
+          </div>
+        </div>
+
+        <!-- Section 2: Projects & Folders (When to work in a folder) -->
+        <div class="sidebar-section">
+          <div class="sidebar-section-header">
+            <span class="sidebar-section-title">PROJECTS & FOLDERS</span>
+            <button id="btnSidebarOpenFolder" class="btn-section-action" title="Open or link a folder from your computer">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
+              <span>Open Folder</span>
+            </button>
+          </div>
+          <div class="sidebar-items-list" id="sidebarFoldersList">
+            <div class="sidebar-empty-state">No linked folders yet. Click &ldquo;Open Folder&rdquo; to work with local files.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Bottom Bar -->
+      <div class="sidebar-footer">
+        <button id="btnOpenSettings" class="sidebar-footer-btn" title="Settings (Ctrl+,)">
+          <div class="footer-btn-left">
+            <span class="status-indicator-dot online"></span>
+            <span class="footer-model-name" id="sidebarModelLabel">OpenRouter Free</span>
+          </div>
+          <svg class="gear-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
         </button>
-      </div>
-
-      <!-- Mode & Workspace Controls (Preserved for logic, compact/hidden) -->
-      <div class="sidebar-card-controls" style="display: none;">
-        <div class="sidebar-control-group">
-          <label class="sidebar-control-label">AGENT MODE</label>
-          <select id="sidebarModeSelect" class="sidebar-select">
-            <option value="coworker">✨ Everyday Coworker</option>
-            <option value="web_researcher">🌐 Deep Web Explorer</option>
-            <option value="file_manager">📁 Workspace & Docs</option>
-            <option value="coder">⚡ Code & Automate</option>
-          </select>
-        </div>
-
-        <div class="sidebar-control-group">
-          <div class="workspace-label-row">
-            <label class="sidebar-control-label">WORKSPACE</label>
-            <button id="sidebarWorkspaceBtn" class="btn-change-folder">Browse...</button>
-          </div>
-          <div class="workspace-pill-display" id="sidebarWorkspaceLabel" title="Active local folder">
-            Default Workspace
-          </div>
-        </div>
-      </div>
-
-      <!-- Conversations History -->
-      <div class="sidebar-sessions-section">
-        <div class="sessions-header-row">
-          <span>RECENT CONVERSATIONS</span>
-        </div>
-        <div id="sidebarSessionsList" class="sessions-list-scroll">
-          <div class="loading-spinner">Loading chats...</div>
-        </div>
-      </div>
-
-      <!-- Bottom Sidebar Footer -->
-      <div class="sidebar-bottom-bar">
-        <div class="sidebar-engine-status" id="sidebarEngineStatus" title="Active AI provider status">
-          <span class="dot green"></span> <span>Ready</span>
-        </div>
-        <div class="sidebar-bottom-actions">
-          <button id="btnFreeAiGuide" class="sidebar-icon-btn" title="Free AI Setup (Zero Cost)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-          </button>
-          <button id="btnOpenSettings" class="sidebar-icon-btn" title="Settings (Ctrl+,)">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
-          </button>
-        </div>
       </div>
     </aside>
 
-    <!-- Main Chat Workspace (Antigravity 2.0 Canvas Style) -->
+    <!-- Main Workspace (Single Centered Flow, NO Sliding Canvas) -->
     <main class="app-main">
-      <!-- Top Navigation Bar -->
+      <!-- Minimalist Topbar -->
       <header class="app-topbar">
         <div class="topbar-left">
-          <div class="topbar-model-badge" id="topbarModelBadge">
-            <span class="dot green"></span> <span>Loading engine...</span>
+          <button id="btnToggleSidebar" class="topbar-icon-btn" title="Toggle Sidebar">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+          </button>
+          <div class="topbar-session-info">
+            <span class="topbar-title" id="topbarSessionTitle">New Chat</span>
+            <div id="topbarFolderBadge" class="topbar-folder-pill" hidden>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <span id="topbarFolderName">project-folder</span>
+              <button id="btnUnlinkFolder" class="btn-unlink-folder" title="Disconnect folder from this chat">✕</button>
+            </div>
           </div>
-          <span class="topbar-mode-badge" id="topbarModeBadge">COWORKER</span>
         </div>
 
         <div class="topbar-right">
-          <button id="btnOpenWizard" class="topbar-btn" title="Setup Wizard (1-Minute Next-Next-Next Guide)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"></path></svg>
-            <span>Setup Wizard</span>
-          </button>
-          <button id="btnToggleCanvas" class="topbar-btn" title="Toggle Auxiliary Coworker Canvas (Side-by-Side)">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="14" y1="3" x2="14" y2="21"></line></svg>
-            <span>Canvas</span>
-          </button>
-          <button id="btnExportChat" class="topbar-icon-btn" title="Export Conversation">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          </button>
-          <button id="btnClearChat" class="topbar-icon-btn" title="Clear Messages">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+          <button id="topbarModelSelectorBtn" class="topbar-model-pill" title="Click to view model or change settings">
+            <span class="status-indicator-dot online"></span>
+            <span id="topbarModelName">OpenRouter Free</span>
           </button>
         </div>
       </header>
 
-      <!-- Central Chat Messages Feed -->
+      <!-- Message Viewport -->
       <section class="chat-viewport" id="chatMessagesContainer">
         <!-- Rendered by chat-view.js -->
       </section>
 
-      <!-- Floating Antigravity Prompt Dock -->
+      <!-- Minimal Bottom Prompt Dock (ChatGPT Style) -->
       <footer class="app-dock-section">
-        <!-- Slash Command Autocomplete Popover -->
-        <div id="slashMenuPopover" class="slash-menu-popover" hidden>
-          <div class="slash-item" data-command="/draft">
-            <strong>/draft</strong> <span>Draft an executive document, proposal, or letter</span>
-          </div>
-          <div class="slash-item" data-command="/research">
-            <strong>/research</strong> <span>Live web research with DuckDuckGo grounding</span>
-          </div>
-          <div class="slash-item" data-command="/summarize">
-            <strong>/summarize</strong> <span>Summarize an attached document or website</span>
-          </div>
-          <div class="slash-item" data-command="/plan">
-            <strong>/plan</strong> <span>Generate a step-by-step project plan</span>
-          </div>
-          <div class="slash-item" data-command="/code">
-            <strong>/code</strong> <span>Write or debug an automation script</span>
-          </div>
-          <div class="slash-item" data-command="/free-setup">
-            <strong>/free-setup</strong> <span>Open 1-minute Free AI Keys guide</span>
-          </div>
-        </div>
-
         <div class="antigravity-dock-card">
-          <!-- Attachment Preview Row -->
-          <div id="chatAttachmentPreview" class="dock-attachment-row" hidden></div>
+          <!-- Active Folder or Attachment Pill in Dock -->
+          <div id="dockMetaBar" class="dock-meta-bar" hidden>
+            <div id="dockFolderPill" class="dock-badge-pill" hidden>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+              <span id="dockFolderName">Folder: ~/my-project</span>
+              <button id="btnDockUnlinkFolder" class="dock-pill-remove" title="Unlink folder">✕</button>
+            </div>
+            <div id="dockAttachmentPill" class="dock-badge-pill" hidden>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+              <span id="dockAttachmentName">file.txt</span>
+              <button id="btnDockRemoveAttachment" class="dock-pill-remove" title="Remove attachment">✕</button>
+            </div>
+          </div>
 
           <!-- Prompt Textarea -->
           <div class="dock-input-row">
@@ -161,58 +121,47 @@
             ></textarea>
           </div>
 
-          <!-- Dock Bottom Controls (ChatGPT Style) -->
+          <!-- Dock Action Buttons -->
           <div class="dock-pills-row">
             <div class="dock-pills-left">
-              <!-- Attach File Pill -->
-              <button id="btnAttachFile" class="dock-pill-btn" title="Attach document or file from computer">
+              <!-- Attach File -->
+              <button id="btnAttachFile" class="dock-action-pill" title="Attach file from your computer">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                 <span>Attach</span>
               </button>
 
-              <!-- Web Grounding Toggle Pill -->
-              <button id="btnToggleWebSearch" class="dock-pill-btn" title="Toggle Live DuckDuckGo Web Search">
+              <!-- Web Search Toggle -->
+              <button id="btnToggleWebSearch" class="dock-action-pill" title="Toggle live DuckDuckGo web search">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                 <span>Search</span>
               </button>
 
-              <!-- Hidden model selector container preserved for JS compatibility -->
-              <div id="dockModelSelectorPill" style="display: none;">
-                <span id="dockModelSelectorLabel"></span>
-              </div>
+              <!-- Link Folder Toggle (When to work in a folder!) -->
+              <button id="btnLinkFolder" class="dock-action-pill" title="Link a project folder on your computer so Eyqa can read and create files in it">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+                <span id="btnLinkFolderLabel">Folder</span>
+              </button>
             </div>
 
             <div class="dock-send-actions">
-              <button id="btnSendMessage" class="dock-btn-send" title="Send message (Enter)">
+              <button id="btnSendMessage" class="dock-btn-send" title="Send (Enter)">
                 <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
               </button>
               <button id="btnStopGeneration" class="dock-btn-stop" title="Stop generating" hidden>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="2"></rect></svg>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="5" y="5" width="14" height="14" rx="2"></rect></svg>
               </button>
             </div>
           </div>
         </div>
-        <div style="margin-top: 8px; font-size: 11px; color: var(--text-muted); text-align: center;">
-          Eyqa is your everyday AI coworker. Powered by free model tiers & web tools.
+        <div class="dock-footer-disclaimer">
+          Eyqa is your everyday AI coworker. Clean, fast, and grounded with live web search.
         </div>
       </footer>
     </main>
-
-    <!-- Side-by-Side Coworker Canvas (Antigravity Auxiliary Pane) -->
-    <aside class="app-canvas-panel" id="coworkerCanvasContainer">
-      <!-- Rendered by canvas-view.js -->
-    </aside>
   </div>
 
-  <!-- Settings Modal Dialog -->
-  <div class="settings-modal-backdrop" id="settingsModal">
-    <!-- Rendered by settings-view.js -->
-  </div>
-
-  <!-- Setup Wizard Modal Dialog -->
-  <div class="wizard-modal-backdrop" id="wizardModal">
-    <!-- Rendered by wizard-view.js -->
-  </div>
+  <!-- Single Clean Settings Modal (No Overlapping Modals) -->
+  <div class="settings-modal-backdrop" id="settingsModal"></div>
 
   <script type="module" src="js/app.js"></script>
 </body>

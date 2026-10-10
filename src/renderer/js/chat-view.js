@@ -1,16 +1,16 @@
 /**
- * Eyqa Chat View (Antigravity 2.0 Style)
- * Renders the conversational stream with Eyqa mascot avatar,
- * Antigravity interleaved thinking accordions, tool step cards, and artifact triggers.
+ * Eyqa Chat View
+ * Pure monochromatic message flow (ChatGPT & Claude style).
+ * Renders interleaved thought accordions, inline tool status badges,
+ * and clean copy actions with zero intrusive sliding drawers.
  */
 
 import { icons } from './icons.js';
 import { renderMarkdown } from './markdown-renderer.js';
 
 export class ChatView {
-  constructor(containerEl, onCanvasOpen, onNotification) {
+  constructor(containerEl, onNotification) {
     this.container = containerEl;
-    this.onCanvasOpen = onCanvasOpen;
     this.onNotification = onNotification;
     this.currentSession = null;
     this.streamingAssistantEl = null;
@@ -45,6 +45,10 @@ export class ChatView {
   }
 
   _renderWelcomeHero() {
+    const hasFolder = Boolean(this.currentSession?.folderPath);
+    const folderName = this.currentSession?.folderName || 'Project Folder';
+    const folderPath = this.currentSession?.folderPath || '';
+
     this.container.innerHTML = `
       <div class="welcome-hero-container">
         <div class="welcome-mascot-box">
@@ -52,41 +56,77 @@ export class ChatView {
         </div>
         <h2 class="welcome-hero-title">What can Eyqa help with today?</h2>
         <p class="welcome-hero-subtitle">
-          Your everyday AI coworker. Powered by free model tiers & live web search.
+          ${hasFolder 
+            ? `Working inside <strong>${this._escape(folderName)}</strong> (<span style="font-family: var(--font-mono); font-size: 11px;">${this._escape(folderPath)}</span>). Eyqa can read, write, and explore files here.` 
+            : 'Your everyday AI coworker. Clean, fast, and grounded with live web search.'}
         </p>
 
         <div class="starter-cards-grid">
-          <div class="starter-card" data-prompt="Draft a clear, executive-ready project proposal with objectives, milestones, and deliverables.">
-            <span class="starter-icon">${icons.briefcase}</span>
-            <div class="starter-card-body">
-              <strong>Draft a Proposal or Document</strong>
-              <p>Create clean, professional proposals, emails, or plans.</p>
+          ${hasFolder ? `
+            <div class="starter-card" data-prompt="Summarize the structure of this project folder and outline what files exist.">
+              <span class="starter-icon">${icons.folder}</span>
+              <div class="starter-card-body">
+                <strong>Project Overview</strong>
+                <p>Inspect and outline all files and directories in this folder.</p>
+              </div>
             </div>
-          </div>
 
-          <div class="starter-card" data-prompt="Search the web for the latest artificial intelligence developments in 2026 and summarize key breakthroughs with sources.">
-            <span class="starter-icon">${icons.globe}</span>
-            <div class="starter-card-body">
-              <strong>Deep Live Web Research</strong>
-              <p>Explore real-time internet news, market reports, and facts.</p>
+            <div class="starter-card" data-prompt="Search the web and compare the tech stack or implementation in this project with modern 2026 best practices.">
+              <span class="starter-icon">${icons.globe}</span>
+              <div class="starter-card-body">
+                <strong>Live Web Research</strong>
+                <p>Verify packages, documentation, and industry standards online.</p>
+              </div>
             </div>
-          </div>
 
-          <div class="starter-card" data-prompt="Examine my workspace folder and summarize all documents, files, and key action items.">
-            <span class="starter-icon">${icons.folder}</span>
-            <div class="starter-card-body">
-              <strong>Workspace & Local Files</strong>
-              <p>Read, summarize, and draft documents directly on your computer.</p>
+            <div class="starter-card" data-prompt="Review the code files in this project and identify areas for optimization or cleanup.">
+              <span class="starter-icon">${icons.code}</span>
+              <div class="starter-card-body">
+                <strong>Code Review & Optimization</strong>
+                <p>Find bugs, clean up scripts, and propose concrete improvements.</p>
+              </div>
             </div>
-          </div>
 
-          <div class="starter-card" data-prompt="Write a clean automation script to organize local files and explain step-by-step how to run it.">
-            <span class="starter-icon">${icons.code}</span>
-            <div class="starter-card-body">
-              <strong>Code & Automate</strong>
-              <p>Generate clean scripts, fix errors, or automate repetitive tasks.</p>
+            <div class="starter-card" data-prompt="Draft complete documentation and a README guide for this project folder.">
+              <span class="starter-icon">${icons.briefcase}</span>
+              <div class="starter-card-body">
+                <strong>Write Project Docs</strong>
+                <p>Generate clear, step-by-step documentation for this folder.</p>
+              </div>
             </div>
-          </div>
+          ` : `
+            <div class="starter-card" data-prompt="Draft a clear, executive-ready proposal with objectives, milestones, and deliverables.">
+              <span class="starter-icon">${icons.briefcase}</span>
+              <div class="starter-card-body">
+                <strong>Draft a Proposal or Document</strong>
+                <p>Create clean, professional proposals, emails, or plans.</p>
+              </div>
+            </div>
+
+            <div class="starter-card" data-prompt="Search the web for the latest artificial intelligence developments in 2026 and summarize key breakthroughs with sources.">
+              <span class="starter-icon">${icons.globe}</span>
+              <div class="starter-card-body">
+                <strong>Deep Live Web Research</strong>
+                <p>Explore real-time internet news, market reports, and facts.</p>
+              </div>
+            </div>
+
+            <div class="starter-card" data-prompt="Explain a complex topic in simple, intuitive terms with practical examples.">
+              <span class="starter-icon">${icons.sparkles}</span>
+              <div class="starter-card-body">
+                <strong>Explain & Brainstorm</strong>
+                <p>Break down difficult concepts into plain, accessible insights.</p>
+              </div>
+            </div>
+
+            <div class="starter-card" data-prompt="Write a clean automation script and explain step-by-step how to run it.">
+              <span class="starter-icon">${icons.code}</span>
+              <div class="starter-card-body">
+                <strong>Code & Automate</strong>
+                <p>Generate clean scripts, fix errors, or automate repetitive tasks.</p>
+              </div>
+            </div>
+          `}
         </div>
       </div>
     `;
@@ -122,7 +162,6 @@ export class ChatView {
     if (msg.role === 'assistant') {
       const hasThought = Boolean(msg.thought && msg.thought.trim());
       const hasTools = Boolean(msg.tools && msg.tools.length > 0);
-      const isSubstantialDoc = msg.content && (msg.content.length > 300 || msg.content.includes('```'));
 
       return `
         <div class="message-row assistant-row" data-index="${idx}">
@@ -133,7 +172,6 @@ export class ChatView {
             <div class="assistant-card-header">
               <div class="assistant-name">
                 <span>eyqa</span>
-                <span class="assistant-role-tag">Coworker</span>
               </div>
               ${msg.provider ? `
                 <span class="assistant-provider-pill">${this._escape(msg.provider.name || '')}</span>
@@ -159,26 +197,7 @@ export class ChatView {
               ${renderMarkdown(msg.content)}
             </div>
 
-            ${isSubstantialDoc ? `
-              <div class="artifact-preview-card" data-content="${encodeURIComponent(msg.content)}">
-                <div class="artifact-info">
-                  ${icons.canvas}
-                  <div>
-                    <span class="artifact-title">Generated Artifact / Document</span>
-                    <small style="display:block; color: var(--text-muted); font-size: 11px;">View, edit, or save directly to local workspace</small>
-                  </div>
-                </div>
-                <button class="artifact-open-btn">
-                  <span>Open in Canvas</span>
-                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
-                </button>
-              </div>
-            ` : ''}
-
             <div class="assistant-card-actions">
-              <button class="msg-action-btn btn-open-canvas" data-content="${encodeURIComponent(msg.content)}" title="Open in Canvas">
-                ${icons.canvas} <span>Open in Canvas</span>
-              </button>
               <button class="msg-action-btn btn-copy-msg" data-content="${encodeURIComponent(msg.content)}" title="Copy text">
                 ${icons.copy} <span>Copy</span>
               </button>
@@ -225,21 +244,20 @@ export class ChatView {
     }
 
     const listEl = scrollEl.querySelector('.chat-messages-list');
-
-    // Append User Bubble
     const userRow = document.createElement('div');
     userRow.className = 'message-row user-row';
     userRow.innerHTML = `
       <div class="message-bubble user-bubble">
         ${userMessage.attachment ? `
-          <div class="attachment-pill">${icons.attach} <span>${this._escape(userMessage.attachment.name)}</span></div>
+          <div class="attachment-pill">
+            ${icons.attach} <span>${this._escape(userMessage.attachment.name)}</span>
+          </div>
         ` : ''}
         <div class="message-text">${this._escape(userMessage.content).replace(/\n/g, '<br/>')}</div>
       </div>
     `;
     listEl.appendChild(userRow);
 
-    // Append Assistant Placeholder with Eyqa Mascot Avatar
     const assistantRow = document.createElement('div');
     assistantRow.className = 'message-row assistant-row streaming';
     assistantRow.innerHTML = `
@@ -248,17 +266,14 @@ export class ChatView {
       </div>
       <div class="assistant-card">
         <div class="assistant-card-header">
-          <div class="assistant-name">
-            <span>eyqa</span>
-            <span class="assistant-role-tag">Coworker</span>
-          </div>
-          <span class="streaming-pulse-indicator">Thinking & generating…</span>
+          <div class="assistant-name"><span>eyqa</span></div>
+          <span class="streaming-pulse-indicator">Typing...</span>
         </div>
         <div class="thought-accordion" id="streamThoughtBox" hidden>
           <button class="thought-header-toggle">
-            ${icons.chevronDown} <span>Thought Process</span>
+            ${icons.chevronRight} <span>Thought Process</span>
           </button>
-          <div class="thought-content-box"></div>
+          <div class="thought-content-box">${this._escape(this.accumulatedThought)}</div>
         </div>
         <div class="tools-badges-list" id="streamToolsBox"></div>
         <div class="assistant-card-body md-body" id="streamContentBox">
@@ -338,7 +353,6 @@ export class ChatView {
       const pulse = this.streamingAssistantEl.querySelector('.streaming-pulse-indicator');
       if (pulse) pulse.remove();
 
-      // Update all tool badges in stream to Completed
       this.streamingAssistantEl.querySelectorAll('.tool-status-pill').forEach(pill => {
         pill.textContent = 'Completed';
         pill.style.color = 'var(--success)';
@@ -349,36 +363,11 @@ export class ChatView {
         this.streamingContentEl.innerHTML = renderMarkdown(this.accumulatedContent);
       }
 
-      // Check if artifact preview card should be appended
       const card = this.streamingAssistantEl.querySelector('.assistant-card');
-      if (card && this.accumulatedContent && (this.accumulatedContent.length > 300 || this.accumulatedContent.includes('```'))) {
-        const artifactCard = document.createElement('div');
-        artifactCard.className = 'artifact-preview-card';
-        artifactCard.dataset.content = encodeURIComponent(this.accumulatedContent);
-        artifactCard.innerHTML = `
-          <div class="artifact-info">
-            ${icons.canvas}
-            <div>
-              <span class="artifact-title">Generated Artifact / Document</span>
-              <small style="display:block; color: var(--text-muted); font-size: 11px;">View, edit, or save directly to local workspace</small>
-            </div>
-          </div>
-          <button class="artifact-open-btn">
-            <span>Open in Canvas</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
-          </button>
-        `;
-        card.appendChild(artifactCard);
-      }
-
-      // Add actions
-      if (card) {
+      if (card && this.accumulatedContent) {
         const actions = document.createElement('div');
         actions.className = 'assistant-card-actions';
         actions.innerHTML = `
-          <button class="msg-action-btn btn-open-canvas" data-content="${encodeURIComponent(this.accumulatedContent)}" title="Open in Canvas">
-            ${icons.canvas} <span>Open in Canvas</span>
-          </button>
           <button class="msg-action-btn btn-copy-msg" data-content="${encodeURIComponent(this.accumulatedContent)}" title="Copy text">
             ${icons.copy} <span>Copy</span>
           </button>
@@ -412,17 +401,7 @@ export class ChatView {
       };
     });
 
-    // Artifact Card Clicks
-    this.container.querySelectorAll('.artifact-preview-card').forEach(card => {
-      card.onclick = (e) => {
-        const content = decodeURIComponent(e.currentTarget.dataset.content || '');
-        if (this.onCanvasOpen) {
-          this.onCanvasOpen('Generated Document', content, 'markdown');
-        }
-      };
-    });
-
-    // Copy message button
+    // Copy message text
     this.container.querySelectorAll('.btn-copy-msg').forEach(btn => {
       btn.onclick = async (e) => {
         const content = decodeURIComponent(e.currentTarget.dataset.content || '');
@@ -435,28 +414,6 @@ export class ChatView {
       };
     });
 
-    // Open in canvas button
-    this.container.querySelectorAll('.btn-open-canvas').forEach(btn => {
-      btn.onclick = (e) => {
-        const content = decodeURIComponent(e.currentTarget.dataset.content || '');
-        if (this.onCanvasOpen) {
-          this.onCanvasOpen('Generated Document', content, 'markdown');
-        }
-      };
-    });
-
-    // Code block canvas inserts
-    this.container.querySelectorAll('.btn-canvas-insert').forEach(btn => {
-      btn.onclick = (e) => {
-        const card = e.currentTarget.closest('.code-block-card');
-        const code = decodeURIComponent(card?.dataset?.code || '');
-        const lang = card?.dataset?.lang || 'text';
-        if (this.onCanvasOpen) {
-          this.onCanvasOpen(`Snippet (${lang})`, code, lang);
-        }
-      };
-    });
-
     // Code block copy
     this.container.querySelectorAll('.btn-copy-code').forEach(btn => {
       btn.onclick = async (e) => {
@@ -464,9 +421,9 @@ export class ChatView {
         const code = decodeURIComponent(card?.dataset?.code || '');
         try {
           await navigator.clipboard.writeText(code);
-          e.currentTarget.innerHTML = `<span>${icons.check} Copied!</span>`;
+          e.currentTarget.innerHTML = `<span>Copied!</span>`;
           setTimeout(() => {
-            e.currentTarget.innerHTML = '<span>📋 Copy</span>';
+            e.currentTarget.innerHTML = `<span>Copy</span>`;
           }, 2000);
         } catch {
           // ignore

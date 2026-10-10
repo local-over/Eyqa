@@ -14,7 +14,7 @@ contextBridge.exposeInMainWorld('eyqaApi', {
   // Session & Conversations
   getSessions: () => ipcRenderer.invoke('store:getSessions'),
   getSession: (id) => ipcRenderer.invoke('store:getSession', id),
-  createSession: (title, mode) => ipcRenderer.invoke('store:createSession', title, mode),
+  createSession: (title, mode, folder) => ipcRenderer.invoke('store:createSession', title, mode, folder),
   saveSession: (session) => ipcRenderer.invoke('store:saveSession', session),
   deleteSession: (id) => ipcRenderer.invoke('store:deleteSession', id),
 

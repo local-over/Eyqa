@@ -58,12 +58,12 @@ export const api = {
     return await res.json();
   },
 
-  async createSession(title, mode) {
-    if (isElectron) return await window.eyqaApi.createSession(title, mode);
+  async createSession(title, mode = 'chat', folder = null) {
+    if (isElectron) return await window.eyqaApi.createSession(title, mode, folder);
     const res = await fetch('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, mode })
+      body: JSON.stringify({ title, mode, folder })
     });
     return await res.json();
   },

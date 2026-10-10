@@ -100,8 +100,8 @@ function setupIpcHandlers() {
     return sessionStore.getSession(id);
   });
 
-  ipcMain.handle('store:createSession', (_, title, mode) => {
-    return sessionStore.createSession(title, mode);
+  ipcMain.handle('store:createSession', (_, title, mode, folder) => {
+    return sessionStore.createSession(title, mode, folder);
   });
 
   ipcMain.handle('store:saveSession', (_, session) => {
@@ -116,13 +116,15 @@ function setupIpcHandlers() {
   ipcMain.handle('dialog:selectWorkspaceFolder', async () => {
     if (!mainWindow) return null;
     const res = await dialog.showOpenDialog(mainWindow, {
-      title: 'Select Eyqa Workspace Folder',
+      title: 'Select Project Folder for Eyqa',
       properties: ['openDirectory', 'createDirectory']
     });
     if (!res.canceled && res.filePaths.length > 0) {
       const selected = res.filePaths[0];
-      configStore.update({ workspacePath: selected });
-      return selected;
+      return {
+        path: selected,
+        name: path.basename(selected)
+      };
     }
     return null;
   });
@@ -194,6 +196,8 @@ function setupIpcHandlers() {
       const result = await orchestrator.runTurn({
         sessionId: payload.sessionId,
         messages: payload.messages,
+        userMessage: payload.userMessage,
+        folderPath: payload.folderPath,
         modeId: payload.modeId,
         providerId: payload.providerId,
         enableTools: payload.enableTools !== false,

@@ -88,11 +88,8 @@ export function renderMarkdown(rawText) {
         <div class="code-block-header">
           <span class="code-lang-label">${block.lang}</span>
           <div class="code-block-actions">
-            <button class="code-action-btn btn-canvas-insert" title="Open in Coworker Canvas">
-              <span>📄 Canvas</span>
-            </button>
             <button class="code-action-btn btn-copy-code" title="Copy code to clipboard">
-              <span>📋 Copy</span>
+              <span>Copy</span>
             </button>
           </div>
         </div>

@@ -122,7 +122,7 @@ async function handleApi(req, res, pathname, parsedUrl) {
 
     if (pathname === '/api/sessions' && req.method === 'POST') {
       const body = await getBody();
-      return jsonResponse(sessionStore.createSession(body.title, body.mode));
+      return jsonResponse(sessionStore.createSession(body.title, body.mode, body.folder));
     }
 
     if (pathname.startsWith('/api/sessions/') && req.method === 'GET') {
@@ -159,6 +159,8 @@ async function handleApi(req, res, pathname, parsedUrl) {
         const result = await orchestrator.runTurn({
           sessionId: payload.sessionId,
           messages: payload.messages,
+          userMessage: payload.userMessage,
+          folderPath: payload.folderPath,
           modeId: payload.modeId,
           providerId: payload.providerId,
           enableTools: payload.enableTools !== false,

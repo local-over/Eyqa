@@ -1,15 +1,13 @@
 /**
  * Eyqa Main Application Controller
- * Features the floating Antigravity prompt dock, slash command menu,
- * model switcher pill, and coworker canvas orchestrator.
+ * Clean ChatGPT & Claude Desktop UI wrapper.
+ * Pure conversation mode vs Project/Folder mode.
  */
 
 import { icons } from './icons.js';
 import { api } from './api.js';
 import { ChatView } from './chat-view.js';
-import { CanvasView } from './canvas-view.js';
 import { SettingsView } from './settings-view.js';
-import { WizardView } from './wizard-view.js';
 
 class EyqaApp {
   constructor() {
@@ -19,12 +17,11 @@ class EyqaApp {
     this.attachedFile = null;
     this.isGenerating = false;
     this.forceWebSearch = false;
+    this.sidebarCollapsed = false;
 
     // View Components
     this.chatView = null;
-    this.canvasView = null;
     this.settingsView = null;
-    this.wizardView = null;
   }
 
   async init() {
@@ -34,106 +31,109 @@ class EyqaApp {
 
     // 2. Initialize Views
     const chatContainer = document.getElementById('chatMessagesContainer');
-    const canvasContainer = document.getElementById('coworkerCanvasContainer');
     const settingsModal = document.getElementById('settingsModal');
 
-    const wizardModal = document.getElementById('wizardModal');
-
-    this.canvasView = new CanvasView(canvasContainer, (msg, type) => this.showToast(msg, type));
     this.chatView = new ChatView(
       chatContainer,
-      (title, content, lang) => this.canvasView.openWithDoc(title, content, lang),
       (msg, type) => this.showToast(msg, type)
     );
+
     this.settingsView = new SettingsView(
       settingsModal,
       (msg, type) => this.showToast(msg, type),
       (newSettings) => this.onSettingsUpdated(newSettings)
     );
-    this.wizardView = new WizardView(
-      wizardModal,
-      (msg, type) => this.showToast(msg, type),
-      (newSettings, starterPrompt) => this.onWizardCompleted(newSettings, starterPrompt)
-    );
 
-    // 3. Load Sessions
-    await this.loadSessions();
-
-    // 4. Setup Controls & Floating Dock
+    // 3. Setup UI Controls
     this.setupSidebar();
     this.setupTopBar();
     this.setupDockInput();
-    this.setupSlashCommands();
     this.setupShortcuts();
+
+    // 4. Load Sessions
+    await this.loadSessions();
 
     // 5. Select or create session
     if (this.sessions.length > 0) {
       await this.selectSession(this.sessions[0].id);
     } else {
-      await this.createNewSession();
+      await this.createNewChat();
     }
 
-    this.updateStatusPills();
-
-    // 6. Auto-launch Setup Wizard if first run
-    const hasAnyKey = Object.values(this.settings.providers || {}).some(p => p.apiKey && p.enabled && p.id !== 'ollama' && p.id !== 'fcc_proxy');
-    if (!this.settings.hasCompletedWizard && !hasAnyKey) {
-      setTimeout(() => {
-        this.wizardView.open();
-      }, 400);
-    }
+    this.updateModelLabels();
   }
 
   async loadSessions() {
     this.sessions = await api.getSessions();
-    this.renderSessionsList();
+    this.renderSidebarLists();
   }
 
-  renderSessionsList() {
-    const listEl = document.getElementById('sidebarSessionsList');
-    if (!listEl) return;
+  renderSidebarLists() {
+    const chatsListEl = document.getElementById('sidebarChatsList');
+    const foldersListEl = document.getElementById('sidebarFoldersList');
 
-    if (this.sessions.length === 0) {
-      listEl.innerHTML = `<div class="sidebar-empty">No conversations yet</div>`;
-      return;
+    if (!chatsListEl || !foldersListEl) return;
+
+    const chats = this.sessions.filter(s => !s.folderPath);
+    const folderProjects = this.sessions.filter(s => Boolean(s.folderPath));
+
+    // Render Standard Chats (When we just chat)
+    if (chats.length === 0) {
+      chatsListEl.innerHTML = `<div class="sidebar-empty-state">No conversations yet</div>`;
+    } else {
+      chatsListEl.innerHTML = chats.map(s => this._renderSidebarItem(s, false)).join('');
     }
 
-    listEl.innerHTML = this.sessions.map(s => {
-      const isSelected = this.currentSession && this.currentSession.id === s.id;
-      return `
-        <div class="session-item ${isSelected ? 'active' : ''}" data-id="${s.id}">
-          <div class="session-item-body">
-            <span class="session-title">${this._escape(s.title || 'Untitled')}</span>
-            <span class="session-preview">${this._escape(s.preview || 'Empty')}</span>
-          </div>
-          <button class="session-delete-btn" data-id="${s.id}" title="Delete Conversation">${icons.trash}</button>
-        </div>
-      `;
-    }).join('');
+    // Render Folder Projects (When working in a folder)
+    if (folderProjects.length === 0) {
+      foldersListEl.innerHTML = `<div class="sidebar-empty-state">No linked folders yet. Click &ldquo;Open Folder&rdquo; to work with local files.</div>`;
+    } else {
+      foldersListEl.innerHTML = folderProjects.map(s => this._renderSidebarItem(s, true)).join('');
+    }
 
-    listEl.querySelectorAll('.session-item').forEach(item => {
-      item.onclick = async (e) => {
-        if (e.target.closest('.session-delete-btn')) return;
-        const id = e.currentTarget.dataset.id;
-        await this.selectSession(id);
-      };
-    });
-
-    listEl.querySelectorAll('.session-delete-btn').forEach(btn => {
-      btn.onclick = async (e) => {
-        e.stopPropagation();
-        const id = e.currentTarget.dataset.id;
-        await api.deleteSession(id);
-        await this.loadSessions();
-        if (this.currentSession && this.currentSession.id === id) {
-          if (this.sessions.length > 0) {
-            await this.selectSession(this.sessions[0].id);
-          } else {
-            await this.createNewSession();
-          }
+    // Attach item events
+    const allItems = [...chatsListEl.querySelectorAll('.sidebar-item'), ...foldersListEl.querySelectorAll('.sidebar-item')];
+    allItems.forEach(el => {
+      el.onclick = async () => {
+        const id = el.dataset.id;
+        if (id && (!this.currentSession || this.currentSession.id !== id)) {
+          await this.selectSession(id);
         }
       };
+
+      const delBtn = el.querySelector('.sidebar-item-delete');
+      if (delBtn) {
+        delBtn.onclick = async (e) => {
+          e.stopPropagation();
+          const id = el.dataset.id;
+          await api.deleteSession(id);
+          await this.loadSessions();
+          if (this.currentSession && this.currentSession.id === id) {
+            if (this.sessions.length > 0) {
+              await this.selectSession(this.sessions[0].id);
+            } else {
+              await this.createNewChat();
+            }
+          }
+        };
+      }
     });
+  }
+
+  _renderSidebarItem(session, isFolder) {
+    const isActive = this.currentSession && this.currentSession.id === session.id;
+    const icon = isFolder ? icons.folder : icons.messageSquare;
+    const title = session.folderName || session.title || 'Conversation';
+
+    return `
+      <div class="sidebar-item ${isActive ? 'active' : ''}" data-id="${session.id}" title="${this._escape(session.folderPath || session.title)}">
+        <div class="sidebar-item-body">
+          <span class="sidebar-item-icon">${icon}</span>
+          <span class="sidebar-item-title">${this._escape(title)}</span>
+        </div>
+        <button class="sidebar-item-delete" title="Delete conversation">${icons.trash}</button>
+      </div>
+    `;
   }
 
   async selectSession(id) {
@@ -142,17 +142,18 @@ class EyqaApp {
 
     this.currentSession = fullSession;
     this.chatView.setSession(this.currentSession);
-    this.renderSessionsList();
+    this.renderSidebarLists();
     this.updateTopBar();
+    this.updateDockMeta();
   }
 
-  async createNewSession() {
-    const mode = this.settings.activeAgentMode || 'coworker';
-    const newSess = await api.createSession('New Conversation', mode);
+  async createNewChat() {
+    const newSess = await api.createSession('New Chat', 'chat', null);
     this.currentSession = newSess;
     await this.loadSessions();
     this.chatView.setSession(this.currentSession);
     this.updateTopBar();
+    this.updateDockMeta();
 
     const input = document.getElementById('chatInputTextarea');
     if (input) {
@@ -161,131 +162,165 @@ class EyqaApp {
     }
   }
 
+  async openProjectFolder() {
+    const folder = await api.selectWorkspaceFolder();
+    if (!folder || !folder.path) return;
+
+    const newSess = await api.createSession(folder.name || 'Project', 'project', folder);
+    this.currentSession = newSess;
+    await this.loadSessions();
+    this.chatView.setSession(this.currentSession);
+    this.updateTopBar();
+    this.updateDockMeta();
+    this.showToast(`Opened project folder: ${folder.name}`, 'success');
+
+    const input = document.getElementById('chatInputTextarea');
+    if (input) {
+      input.value = '';
+      input.focus();
+    }
+  }
+
+  async linkFolderToCurrentChat() {
+    const folder = await api.selectWorkspaceFolder();
+    if (!folder || !folder.path) return;
+
+    if (!this.currentSession) {
+      await this.openProjectFolder();
+      return;
+    }
+
+    this.currentSession.folderPath = folder.path;
+    this.currentSession.folderName = folder.name;
+    if (this.currentSession.title === 'New Chat' || this.currentSession.title === 'New Conversation') {
+      this.currentSession.title = folder.name;
+    }
+
+    await api.saveSession(this.currentSession);
+    await this.loadSessions();
+    this.chatView.setSession(this.currentSession);
+    this.updateTopBar();
+    this.updateDockMeta();
+    this.showToast(`Linked folder: ${folder.name}`, 'success');
+  }
+
+  async unlinkFolderFromCurrentChat() {
+    if (!this.currentSession) return;
+
+    this.currentSession.folderPath = null;
+    this.currentSession.folderName = null;
+    await api.saveSession(this.currentSession);
+    await this.loadSessions();
+    this.chatView.setSession(this.currentSession);
+    this.updateTopBar();
+    this.updateDockMeta();
+    this.showToast('Unlinked folder. Back to general chat.', 'info');
+  }
+
   setupSidebar() {
+    // New Chat Action Button
     document.getElementById('btnNewChat')?.addEventListener('click', () => {
-      this.createNewSession();
+      this.createNewChat();
     });
 
-    document.getElementById('btnHeaderNewChat')?.addEventListener('click', () => {
-      this.createNewSession();
-    });
-
+    // Brand Home Click
     document.getElementById('brandHomeLink')?.addEventListener('click', () => {
-      this.createNewSession();
+      this.createNewChat();
     });
 
-    const modeSelect = document.getElementById('sidebarModeSelect');
-    if (modeSelect) {
-      modeSelect.value = this.settings.activeAgentMode || 'coworker';
-      modeSelect.addEventListener('change', async (e) => {
-        const newMode = e.target.value;
-        this.settings.activeAgentMode = newMode;
-        await api.saveSettings({ activeAgentMode: newMode });
-        if (this.currentSession) {
-          this.currentSession.mode = newMode;
-          await api.saveSession(this.currentSession);
-        }
-        this.updateTopBar();
-        this.showToast(`Switched mode: ${newMode}`, 'info');
-      });
-    }
+    // Open Folder in Sidebar
+    document.getElementById('btnSidebarOpenFolder')?.addEventListener('click', () => {
+      this.openProjectFolder();
+    });
 
-    const wsBtn = document.getElementById('sidebarWorkspaceBtn');
-    if (wsBtn) {
-      this._updateWorkspaceLabel();
-      wsBtn.addEventListener('click', async () => {
-        const folder = await api.selectWorkspaceFolder();
-        if (folder) {
-          this.settings.workspacePath = folder;
-          this._updateWorkspaceLabel();
-          this.showToast(`Active workspace: ${folder}`, 'success');
-        }
-      });
-    }
-
+    // Open Settings Button
     document.getElementById('btnOpenSettings')?.addEventListener('click', () => {
       this.settingsView.open();
     });
-
-    document.getElementById('btnFreeAiGuide')?.addEventListener('click', () => {
-      this.wizardView.open();
-    });
-  }
-
-  _updateWorkspaceLabel() {
-    const label = document.getElementById('sidebarWorkspaceLabel');
-    if (label) {
-      const p = this.settings.workspacePath || 'No folder selected';
-      const parts = p.split(/[\\/]/);
-      label.textContent = parts[parts.length - 1] || p;
-      label.title = p;
-    }
   }
 
   setupTopBar() {
-    document.getElementById('btnOpenWizard')?.addEventListener('click', () => {
-      this.wizardView.open();
-    });
-
-    document.getElementById('btnToggleCanvas')?.addEventListener('click', () => {
-      const open = this.canvasView.toggle();
-      const btn = document.getElementById('btnToggleCanvas');
-      if (btn) btn.classList.toggle('active', open);
-    });
-
-    document.getElementById('btnClearChat')?.addEventListener('click', async () => {
-      if (this.currentSession) {
-        this.currentSession.messages = [];
-        await api.saveSession(this.currentSession);
-        this.chatView.setSession(this.currentSession);
-        await this.loadSessions();
+    // Toggle Sidebar
+    document.getElementById('btnToggleSidebar')?.addEventListener('click', () => {
+      const sidebar = document.getElementById('appSidebar');
+      if (sidebar) {
+        this.sidebarCollapsed = !this.sidebarCollapsed;
+        sidebar.classList.toggle('collapsed', this.sidebarCollapsed);
       }
     });
 
-    document.getElementById('btnExportChat')?.addEventListener('click', () => {
-      if (!this.currentSession || !this.currentSession.messages) return;
-      let md = `# ${this.currentSession.title}\n\n`;
-      for (const m of this.currentSession.messages) {
-        const speaker = m.role === 'user' ? '### 👤 User' : '### ✨ eyqa';
-        md += `${speaker}\n\n${m.content}\n\n---\n\n`;
-      }
-      this.canvasView.openWithDoc(`Export - ${this.currentSession.title}`, md, 'markdown');
-      this.showToast('Conversation exported to Canvas!', 'success');
+    // Topbar Model Selector Button
+    document.getElementById('topbarModelSelectorBtn')?.addEventListener('click', () => {
+      this.settingsView.open();
     });
 
-    this.updateTopBar();
+    // Topbar Unlink Folder Button
+    document.getElementById('btnUnlinkFolder')?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      this.unlinkFolderFromCurrentChat();
+    });
   }
 
   updateTopBar() {
-    const modelPill = document.getElementById('topbarModelBadge');
-    if (modelPill) {
-      const p = this.settings.providers[this.settings.activeProviderId];
-      if (p) {
-        modelPill.innerHTML = `<span class="dot green"></span> <span>${this._escape(p.name)} (${this._escape(p.model)})</span>`;
-      }
+    const titleEl = document.getElementById('topbarSessionTitle');
+    const folderBadgeEl = document.getElementById('topbarFolderBadge');
+    const folderNameEl = document.getElementById('topbarFolderName');
+
+    if (!this.currentSession) return;
+
+    if (titleEl) {
+      titleEl.textContent = this.currentSession.title || 'New Chat';
     }
 
-    const modePill = document.getElementById('topbarModeBadge');
-    if (modePill) {
-      const mode = this.currentSession?.mode || this.settings.activeAgentMode || 'coworker';
-      modePill.textContent = mode.replace('_', ' ').toUpperCase();
+    if (folderBadgeEl && folderNameEl) {
+      if (this.currentSession.folderPath) {
+        folderBadgeEl.hidden = false;
+        folderNameEl.textContent = this.currentSession.folderName || 'Folder';
+        folderBadgeEl.title = this.currentSession.folderPath;
+      } else {
+        folderBadgeEl.hidden = true;
+      }
     }
   }
 
-  updateStatusPills() {
-    const p = this.settings.providers[this.settings.activeProviderId];
-    if (!p) return;
+  updateDockMeta() {
+    const metaBar = document.getElementById('dockMetaBar');
+    const folderPill = document.getElementById('dockFolderPill');
+    const folderName = document.getElementById('dockFolderName');
+    const attachPill = document.getElementById('dockAttachmentPill');
+    const attachName = document.getElementById('dockAttachmentName');
+    const linkFolderBtn = document.getElementById('btnLinkFolder');
+    const linkFolderLabel = document.getElementById('btnLinkFolderLabel');
 
-    // Sidebar status
-    const statusEl = document.getElementById('sidebarEngineStatus');
-    if (statusEl) {
-      statusEl.innerHTML = `<span class="dot ${p.apiKey || p.id === 'ollama' ? 'green' : 'amber'}"></span> <span>${p.name} · ${p.badge}</span>`;
+    const hasFolder = Boolean(this.currentSession?.folderPath);
+    const hasAttach = Boolean(this.attachedFile);
+
+    if (metaBar) {
+      metaBar.hidden = !hasFolder && !hasAttach;
     }
 
-    // Dock model pill
-    const dockModelLabel = document.getElementById('dockModelSelectorLabel');
-    if (dockModelLabel) {
-      dockModelLabel.textContent = `${p.name} (${p.model})`;
+    if (folderPill && folderName) {
+      if (hasFolder) {
+        folderPill.hidden = false;
+        folderName.textContent = `Folder: ${this.currentSession.folderName}`;
+        folderPill.title = this.currentSession.folderPath;
+      } else {
+        folderPill.hidden = true;
+      }
+    }
+
+    if (attachPill && attachName) {
+      if (hasAttach) {
+        attachPill.hidden = false;
+        attachName.textContent = this.attachedFile.name;
+      } else {
+        attachPill.hidden = true;
+      }
+    }
+
+    if (linkFolderBtn && linkFolderLabel) {
+      linkFolderBtn.classList.toggle('active', hasFolder);
+      linkFolderLabel.textContent = hasFolder ? this.currentSession.folderName : 'Folder';
     }
   }
 
@@ -295,28 +330,20 @@ class EyqaApp {
     const stopBtn = document.getElementById('btnStopGeneration');
     const attachBtn = document.getElementById('btnAttachFile');
     const webToggleBtn = document.getElementById('btnToggleWebSearch');
-    const dockModelPill = document.getElementById('dockModelSelectorPill');
-
-    // Clicking dock model pill opens Settings
-    dockModelPill?.addEventListener('click', () => {
-      this.settingsView.open();
-    });
+    const linkFolderBtn = document.getElementById('btnLinkFolder');
+    const dockUnlinkFolderBtn = document.getElementById('btnDockUnlinkFolder');
+    const dockRemoveAttachBtn = document.getElementById('btnDockRemoveAttachment');
 
     // Auto-resizing textarea
     textarea?.addEventListener('input', () => {
       textarea.style.height = 'auto';
       textarea.style.height = Math.min(textarea.scrollHeight, 180) + 'px';
-      this.checkSlashCommand(textarea.value);
     });
 
     // Enter to send
     textarea?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
-        const popover = document.getElementById('slashMenuPopover');
-        if (popover && !popover.hidden) {
-          popover.hidden = true;
-        }
         this.submitMessage();
       }
     });
@@ -338,86 +365,31 @@ class EyqaApp {
       const file = await api.selectAttachmentFile();
       if (file && !file.error) {
         this.attachedFile = file;
-        this._renderAttachmentPill();
+        this.updateDockMeta();
       }
+    });
+
+    // Remove Attachment Pill
+    dockRemoveAttachBtn?.addEventListener('click', () => {
+      this.attachedFile = null;
+      this.updateDockMeta();
     });
 
     // Web Search Toggle
     webToggleBtn?.addEventListener('click', () => {
       this.forceWebSearch = !this.forceWebSearch;
       webToggleBtn.classList.toggle('active', this.forceWebSearch);
-      this.showToast(this.forceWebSearch ? 'Web Grounding: Enabled (Live DuckDuckGo)' : 'Web Grounding: Auto', 'info');
+      this.showToast(this.forceWebSearch ? 'Live Web Search: Enabled (DuckDuckGo)' : 'Live Web Search: Auto', 'info');
     });
-  }
 
-  setupSlashCommands() {
-    const popover = document.getElementById('slashMenuPopover');
-    const textarea = document.getElementById('chatInputTextarea');
-
-    popover?.querySelectorAll('.slash-item').forEach(item => {
-      item.addEventListener('click', (e) => {
-        const cmd = e.currentTarget.dataset.command;
-        popover.hidden = true;
-
-        if (cmd === '/free-setup' || cmd === '/wizard') {
-          this.wizardView.open();
-          textarea.value = '';
-          return;
-        }
-
-        if (cmd === '/draft') {
-          textarea.value = 'Draft a complete proposal for: ';
-        } else if (cmd === '/research') {
-          textarea.value = 'Research the live web and summarize: ';
-          this.forceWebSearch = true;
-          document.getElementById('btnToggleWebSearch')?.classList.add('active');
-        } else if (cmd === '/summarize') {
-          textarea.value = 'Summarize the attached document or current workspace overview.';
-        } else if (cmd === '/plan') {
-          textarea.value = 'Create a step-by-step action plan to accomplish: ';
-        } else if (cmd === '/code') {
-          textarea.value = 'Write a clean script to automate: ';
-        }
-
-        textarea.focus();
-        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
-      });
+    // Link Folder Button
+    linkFolderBtn?.addEventListener('click', () => {
+      this.linkFolderToCurrentChat();
     });
-  }
 
-  checkSlashCommand(text) {
-    const popover = document.getElementById('slashMenuPopover');
-    if (!popover) return;
-
-    if (text.trim() === '/') {
-      popover.hidden = false;
-    } else {
-      popover.hidden = true;
-    }
-  }
-
-  _renderAttachmentPill() {
-    const container = document.getElementById('chatAttachmentPreview');
-    if (!container) return;
-
-    if (!this.attachedFile) {
-      container.innerHTML = '';
-      container.hidden = true;
-      return;
-    }
-
-    container.hidden = false;
-    container.innerHTML = `
-      <div class="input-attached-pill">
-        ${icons.attach}
-        <span>${this._escape(this.attachedFile.name)}</span>
-        <button class="btn-remove-attachment" title="Remove Attachment">${icons.close}</button>
-      </div>
-    `;
-
-    container.querySelector('.btn-remove-attachment')?.addEventListener('click', () => {
-      this.attachedFile = null;
-      this._renderAttachmentPill();
+    // Dock Unlink Folder Button
+    dockUnlinkFolderBtn?.addEventListener('click', () => {
+      this.unlinkFolderFromCurrentChat();
     });
   }
 
@@ -439,10 +411,10 @@ class EyqaApp {
     };
 
     this.attachedFile = null;
-    this._renderAttachmentPill();
+    this.updateDockMeta();
 
     // Set first message title
-    if (this.currentSession.messages.length === 0) {
+    if (this.currentSession.messages.length === 0 && !this.currentSession.folderPath) {
       this.currentSession.title = content.slice(0, 32) || 'Conversation';
     }
 
@@ -457,18 +429,16 @@ class EyqaApp {
       const response = await api.startTurn({
         sessionId: this.currentSession.id,
         messages: this.currentSession.messages,
-        modeId: this.currentSession.mode || this.settings.activeAgentMode,
+        userMessage: content,
+        folderPath: this.currentSession.folderPath || null,
+        modeId: this.currentSession.mode || 'chat',
         providerId: this.settings.activeProviderId,
         forceWebSearch: this.forceWebSearch
       }, {
         onToken: (tok) => this.chatView.appendToken(tok),
         onThought: (th) => this.chatView.appendThought(th),
         onToolStart: (ti) => this.chatView.addToolBadge(ti),
-        onToolResult: (ri) => {
-          if (ri.name === 'web_search' && ri.output?.results) {
-            this.canvasView.openWithWeb(ri.output.results);
-          }
-        },
+        onToolResult: () => {},
         onFallback: (fb) => this.chatView.addFallbackNotice(fb)
       });
 
@@ -488,11 +458,19 @@ class EyqaApp {
 
         this.chatView.finishStream(response.result);
       } else if (response && response.error) {
-        this.chatView.finishStream({});
+        if (this.chatView.streamingAssistantEl && !this.chatView.accumulatedContent) {
+          this.chatView.streamingAssistantEl.remove();
+        } else {
+          this.chatView.finishStream({});
+        }
         this.showToast(response.error, 'error');
       }
     } catch (err) {
-      this.chatView.finishStream({});
+      if (this.chatView.streamingAssistantEl && !this.chatView.accumulatedContent) {
+        this.chatView.streamingAssistantEl.remove();
+      } else {
+        this.chatView.finishStream({});
+      }
       this.showToast(`Generation failed: ${err.message}`, 'error');
     } finally {
       this.isGenerating = false;
@@ -507,65 +485,58 @@ class EyqaApp {
     if (stopBtn) stopBtn.hidden = !this.isGenerating;
   }
 
+  updateModelLabels() {
+    const activeProvider = this.settings?.providers?.[this.settings?.activeProviderId];
+    const name = activeProvider?.name || 'AI Engine';
+
+    const sidebarLabel = document.getElementById('sidebarModelLabel');
+    if (sidebarLabel) sidebarLabel.textContent = name;
+
+    const topbarModelName = document.getElementById('topbarModelName');
+    if (topbarModelName) topbarModelName.textContent = name;
+  }
+
+  onSettingsUpdated(newSettings) {
+    this.settings = newSettings;
+    document.body.className = `theme-${this.settings.appearance?.theme || 'dark'}`;
+    this.updateModelLabels();
+    this.showToast('Settings saved successfully.', 'success');
+  }
+
   setupShortcuts() {
     window.addEventListener('keydown', (e) => {
       // Ctrl+N or Cmd+N: New Chat
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'n') {
         e.preventDefault();
-        this.createNewSession();
+        this.createNewChat();
       }
       // Ctrl+, or Cmd+,: Open Settings
       if ((e.ctrlKey || e.metaKey) && e.key === ',') {
         e.preventDefault();
         this.settingsView.open();
       }
-      // Escape: close modals & popovers
+      // Escape: Close Settings Modal
       if (e.key === 'Escape') {
-        this.settingsView.close();
-        this.wizardView?.close();
-        const popover = document.getElementById('slashMenuPopover');
-        if (popover) popover.hidden = true;
+        this.settingsView?.close();
       }
     });
   }
 
-  onSettingsUpdated(newSettings) {
-    this.settings = newSettings;
-    this.updateTopBar();
-    this.updateStatusPills();
-    this._updateWorkspaceLabel();
-  }
-
-  onWizardCompleted(newSettings, starterPrompt = null) {
-    this.settings = newSettings;
-    this.updateTopBar();
-    this.updateStatusPills();
-    this._updateWorkspaceLabel();
-    this.showToast('✨ Eyqa is configured and ready!', 'success');
-
-    if (starterPrompt) {
-      const input = document.getElementById('chatInputTextarea');
-      if (input) {
-        input.value = starterPrompt;
-        setTimeout(() => this.submitMessage(), 250);
-      }
-    }
-  }
-
   showToast(message, type = 'info') {
-    const toast = document.createElement('div');
-    toast.className = `toast-banner ${type}`;
-    toast.innerHTML = `<span>${this._escape(message)}</span>`;
-    document.body.appendChild(toast);
+    let toast = document.querySelector('.toast-banner');
+    if (!toast) {
+      toast = document.createElement('div');
+      toast.className = 'toast-banner';
+      document.body.appendChild(toast);
+    }
 
-    setTimeout(() => {
-      toast.classList.add('visible');
-    }, 10);
+    toast.textContent = message;
+    toast.className = `toast-banner visible ${type}`;
 
-    setTimeout(() => {
+    if (this._toastTimer) clearTimeout(this._toastTimer);
+    this._toastTimer = setTimeout(() => {
       toast.classList.remove('visible');
-      setTimeout(() => toast.remove(), 300);
-    }, 3500);
+    }, 3200);
   }
 
   _escape(str) {
@@ -574,8 +545,10 @@ class EyqaApp {
   }
 }
 
-// Bootstrap application on window load
+// Initialize Application when DOM is ready
 window.addEventListener('DOMContentLoaded', () => {
   const app = new EyqaApp();
-  app.init();
+  app.init().catch(err => {
+    console.error('[EyqaApp] Initialization failed:', err);
+  });
 });

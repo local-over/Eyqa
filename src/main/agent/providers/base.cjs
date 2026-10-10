@@ -2,7 +2,7 @@
  * Eyqa Base Provider Definitions & Tool Schemas
  */
 
-const TOOL_SCHEMAS = [
+const WEB_TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
@@ -40,18 +40,21 @@ const TOOL_SCHEMAS = [
         required: ['url']
       }
     }
-  },
+  }
+];
+
+const WORKSPACE_TOOL_SCHEMAS = [
   {
     type: 'function',
     function: {
       name: 'workspace_list',
-      description: 'List files and directories inside the active workspace.',
+      description: 'List files and directories inside the active project folder.',
       parameters: {
         type: 'object',
         properties: {
           subDirectory: {
             type: 'string',
-            description: 'Optional subfolder inside the workspace to inspect (leave empty for root).'
+            description: 'Optional subfolder inside the project folder to inspect (leave empty for root).'
           }
         }
       }
@@ -61,7 +64,7 @@ const TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'workspace_read_file',
-      description: 'Read the contents of a text file inside the active workspace.',
+      description: 'Read the contents of a text file inside the active project folder.',
       parameters: {
         type: 'object',
         properties: {
@@ -78,7 +81,7 @@ const TOOL_SCHEMAS = [
     type: 'function',
     function: {
       name: 'workspace_write_file',
-      description: 'Create or overwrite a file inside the active workspace.',
+      description: 'Create or overwrite a file inside the active project folder.',
       parameters: {
         type: 'object',
         properties: {
@@ -97,6 +100,8 @@ const TOOL_SCHEMAS = [
   }
 ];
 
+const TOOL_SCHEMAS = [...WEB_TOOL_SCHEMAS, ...WORKSPACE_TOOL_SCHEMAS];
+
 // Gemini function declaration format
 const GEMINI_FUNCTION_DECLARATIONS = TOOL_SCHEMAS.map(tool => ({
   name: tool.function.name,
@@ -112,6 +117,8 @@ const ANTHROPIC_TOOL_DEFINITIONS = TOOL_SCHEMAS.map(tool => ({
 }));
 
 module.exports = {
+  WEB_TOOL_SCHEMAS,
+  WORKSPACE_TOOL_SCHEMAS,
   TOOL_SCHEMAS,
   GEMINI_FUNCTION_DECLARATIONS,
   ANTHROPIC_TOOL_DEFINITIONS

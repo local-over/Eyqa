@@ -348,12 +348,18 @@ export class SettingsView {
     // Browse workspace
     this.modal.querySelector('.btn-browse-workspace')?.addEventListener('click', async () => {
       const selected = await api.selectWorkspaceFolder();
-      if (selected) {
-        this.settings.workspacePath = selected;
+      const folderPath = selected && typeof selected === 'object' ? selected.path : selected;
+      if (folderPath) {
+        this.settings.workspacePath = folderPath;
         const input = this.modal.querySelector('#settingsWorkspaceInput');
-        if (input) input.value = selected;
+        if (input) input.value = folderPath;
       }
     });
+
+    // Close on backdrop click
+    this.modal.onclick = (e) => {
+      if (e.target === this.modal) this.close();
+    };
 
     // Theme radio
     this.modal.querySelectorAll('input[name="eyqaTheme"]').forEach(r => {

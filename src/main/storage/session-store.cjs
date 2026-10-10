@@ -50,13 +50,15 @@ class SessionStore {
     return this.index.sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0));
   }
 
-  createSession(initialTitle = 'New Conversation', mode = 'coworker') {
+  createSession(initialTitle = 'New Conversation', mode = 'chat', folder = null) {
     const id = 'sess_' + crypto.randomUUID().slice(0, 8);
     const now = Date.now();
     const session = {
       id,
       title: initialTitle,
       mode,
+      folderPath: folder?.path || null,
+      folderName: folder?.name || null,
       createdAt: now,
       updatedAt: now,
       messages: [],
@@ -72,6 +74,8 @@ class SessionStore {
       id,
       title: initialTitle,
       mode,
+      folderPath: session.folderPath,
+      folderName: session.folderName,
       createdAt: now,
       updatedAt: now,
       messageCount: 0,
@@ -115,7 +119,9 @@ class SessionStore {
       const summary = {
         id: session.id,
         title: session.title || 'Untitled',
-        mode: session.mode || 'coworker',
+        mode: session.mode || 'chat',
+        folderPath: session.folderPath || null,
+        folderName: session.folderName || null,
         createdAt: session.createdAt,
         updatedAt: session.updatedAt,
         messageCount: (session.messages || []).length,
