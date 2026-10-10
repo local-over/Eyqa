@@ -1,0 +1,13 @@
+<svg viewBox="0 0 128 128" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="eyqaGlowBig" x1="8" y1="8" x2="120" y2="120" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#6366F1" />
+      <stop offset="0.5" stop-color="#8B5CF6" />
+      <stop offset="1" stop-color="#EC4899" />
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="36" fill="url(#eyqaGlowBig)" />
+  <path d="M36 64C36 48.536 48.536 36 64 36C79.464 36 92 48.536 92 64C92 79.464 79.464 92 64 92C54 92 45.2 86.8 40 79.2" stroke="white" stroke-width="10" stroke-linecap="round" />
+  <path d="M64 64H92" stroke="white" stroke-width="10" stroke-linecap="round" />
+  <circle cx="84" cy="84" r="7" fill="white" />
+</svg>

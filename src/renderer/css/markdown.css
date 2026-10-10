@@ -1,0 +1,176 @@
+/* =========================================================
+   EYQA MARKDOWN & CODE BLOCKS STYLING
+   ========================================================= */
+
+.md-body {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--text-primary);
+  word-break: break-word;
+}
+
+.md-body > *:first-child { margin-top: 0; }
+.md-body > *:last-child { margin-bottom: 0; }
+
+.md-h1 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 18px 0 10px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-subtle);
+  padding-bottom: 6px;
+}
+
+.md-h2 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 16px 0 8px;
+  color: var(--text-primary);
+}
+
+.md-h3 {
+  font-size: 15px;
+  font-weight: 600;
+  margin: 14px 0 6px;
+  color: var(--text-primary);
+}
+
+.md-p {
+  margin: 8px 0;
+}
+
+.md-blockquote {
+  margin: 12px 0;
+  padding: 8px 16px;
+  border-left: 3px solid var(--accent-primary);
+  background: rgba(99, 102, 241, 0.05);
+  border-radius: 0 8px 8px 0;
+  color: var(--text-secondary);
+  font-style: italic;
+}
+
+.md-ul, .md-ol {
+  margin: 8px 0 8px 20px;
+  padding: 0;
+}
+
+.md-li, .md-oli {
+  margin-bottom: 4px;
+}
+
+.md-inline-code {
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: #a5b4fc;
+}
+
+.md-link {
+  color: var(--accent-primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-weight: 500;
+}
+
+.md-link:hover {
+  color: var(--accent-hover);
+}
+
+.md-hr {
+  border: none;
+  border-top: 1px solid var(--border-subtle);
+  margin: 16px 0;
+}
+
+/* Code Block Cards */
+.code-block-card {
+  margin: 14px 0;
+  background: #05070a;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.code-block-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 14px;
+  background: #0d1117;
+  border-bottom: 1px solid var(--border-subtle);
+  user-select: none;
+}
+
+.code-lang-label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.code-block-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.code-action-btn {
+  background: none;
+  border: 1px solid var(--border-subtle);
+  border-radius: 4px;
+  padding: 3px 8px;
+  color: var(--text-secondary);
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  transition: all 0.15s;
+}
+
+.code-action-btn:hover {
+  background: var(--bg-card-hover);
+  color: var(--text-primary);
+}
+
+.code-block-pre {
+  margin: 0;
+  padding: 14px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.6;
+  color: #e2e8f0;
+}
+
+/* Tables */
+.table-container {
+  overflow-x: auto;
+  margin: 14px 0;
+}
+
+.md-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13.5px;
+}
+
+.md-table th, .md-table td {
+  border: 1px solid var(--border-subtle);
+  padding: 8px 12px;
+  text-align: left;
+}
+
+.md-table th {
+  background: rgba(255, 255, 255, 0.04);
+  font-weight: 600;
+}
+
+.md-table tr:nth-child(even) {
+  background: rgba(255, 255, 255, 0.02);
+}

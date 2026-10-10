@@ -1,0 +1,43 @@
+{
+  "name": "eyqa",
+  "version": "1.0.0",
+  "description": "Eyqa - The Everyday AI Coworker with Native UI, Multi-Provider Free Tiers, and Instant Web Grounding",
+  "main": "src/main/index.cjs",
+  "scripts": {
+    "start": "electron .",
+    "web": "node src/server.cjs",
+    "test:agent": "node -e \"const { searchWeb } = require('./src/main/agent/tools/web-search.cjs'); searchWeb('test', 1).then(console.log);\""
+  },
+  "keywords": [
+    "ai",
+    "coworker",
+    "chatgpt",
+    "claude",
+    "free-models",
+    "desktop-app",
+    "agents"
+  ],
+  "author": "Eyqa",
+  "license": "AGPL-3.0-only",
+  "devDependencies": {
+    "electron": "^44.7.0"
+  },
+  "build": {
+    "appId": "com.eyqa.app",
+    "productName": "Eyqa",
+    "directories": {
+      "output": "dist"
+    },
+    "linux": {
+      "target": ["AppImage", "deb"],
+      "category": "Utility"
+    },
+    "mac": {
+      "target": ["dmg", "zip"],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": ["nsis", "portable"]
+    }
+  }
+}
