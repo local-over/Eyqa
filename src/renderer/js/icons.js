@@ -4,19 +4,7 @@
  */
 
 export const icons = {
-  eyqaLogo: `<svg viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <defs>
-      <linearGradient id="eyqaGlow" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-        <stop stop-color="#6366F1" />
-        <stop offset="0.5" stop-color="#8B5CF6" />
-        <stop offset="1" stop-color="#EC4899" />
-      </linearGradient>
-    </defs>
-    <rect width="32" height="32" rx="9" fill="url(#eyqaGlow)" />
-    <path d="M9 16C9 12.134 12.134 9 16 9C19.866 9 23 12.134 23 16C23 19.866 19.866 23 16 23C13.5 23 11.3 21.7 10 19.8" stroke="white" stroke-width="2.5" stroke-linecap="round" />
-    <path d="M16 16H23" stroke="white" stroke-width="2.5" stroke-linecap="round" />
-    <circle cx="21" cy="21" r="2" fill="white" />
-  </svg>`,
+  eyqaLogo: `<img src="assets/eyqa-logo.png" alt="Eyqa" style="width: 100%; height: 100%; object-fit: cover; border-radius: inherit;" />`,
 
   sparkles: `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
     <path d="m12 3-1.9 5.8a2 2 0 0 1-1.3 1.3L3 12l5.8 1.9a2 2 0 0 1 1.3 1.3L12 21l1.9-5.8a2 2 0 0 1 1.3-1.3L21 12l-5.8-1.9a2 2 0 0 1-1.3-1.3Z"/>

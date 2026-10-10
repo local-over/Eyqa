@@ -1,6 +1,7 @@
 /**
  * Eyqa Main Application Controller
- * Coordinates sessions, settings, chat stream, canvas, and UI events.
+ * Features the floating Antigravity prompt dock, slash command menu,
+ * model switcher pill, and coworker canvas orchestrator.
  */
 
 import { icons } from './icons.js';
@@ -49,20 +50,21 @@ class EyqaApp {
     // 3. Load Sessions
     await this.loadSessions();
 
-    // 4. Setup DOM Elements & Event Handlers
+    // 4. Setup Controls & Floating Dock
     this.setupSidebar();
     this.setupTopBar();
-    this.setupInputBar();
+    this.setupDockInput();
+    this.setupSlashCommands();
     this.setupShortcuts();
 
-    // 5. If no active session, create one
+    // 5. Select or create session
     if (this.sessions.length > 0) {
       await this.selectSession(this.sessions[0].id);
     } else {
       await this.createNewSession();
     }
 
-    this.updateStatusPill();
+    this.updateStatusPills();
   }
 
   async loadSessions() {
@@ -143,12 +145,10 @@ class EyqaApp {
   }
 
   setupSidebar() {
-    // New Chat Button
     document.getElementById('btnNewChat')?.addEventListener('click', () => {
       this.createNewSession();
     });
 
-    // Agent Mode Selector
     const modeSelect = document.getElementById('sidebarModeSelect');
     if (modeSelect) {
       modeSelect.value = this.settings.activeAgentMode || 'coworker';
@@ -161,11 +161,10 @@ class EyqaApp {
           await api.saveSession(this.currentSession);
         }
         this.updateTopBar();
-        this.showToast(`Switched mode to: ${newMode}`, 'info');
+        this.showToast(`Switched mode: ${newMode}`, 'info');
       });
     }
 
-    // Workspace Folder Picker
     const wsBtn = document.getElementById('sidebarWorkspaceBtn');
     if (wsBtn) {
       this._updateWorkspaceLabel();
@@ -179,12 +178,10 @@ class EyqaApp {
       });
     }
 
-    // Settings Button
     document.getElementById('btnOpenSettings')?.addEventListener('click', () => {
       this.settingsView.open();
     });
 
-    // Free AI Guide Button
     document.getElementById('btnFreeAiGuide')?.addEventListener('click', () => {
       this.settingsView.open();
       this.settingsView.activeTab = 'free';
@@ -203,14 +200,12 @@ class EyqaApp {
   }
 
   setupTopBar() {
-    // Canvas Toggle
     document.getElementById('btnToggleCanvas')?.addEventListener('click', () => {
       const open = this.canvasView.toggle();
       const btn = document.getElementById('btnToggleCanvas');
       if (btn) btn.classList.toggle('active', open);
     });
 
-    // Clear Chat
     document.getElementById('btnClearChat')?.addEventListener('click', async () => {
       if (this.currentSession) {
         this.currentSession.messages = [];
@@ -220,12 +215,11 @@ class EyqaApp {
       }
     });
 
-    // Export Chat
     document.getElementById('btnExportChat')?.addEventListener('click', () => {
       if (!this.currentSession || !this.currentSession.messages) return;
       let md = `# ${this.currentSession.title}\n\n`;
       for (const m of this.currentSession.messages) {
-        const speaker = m.role === 'user' ? '### 👤 User' : '### ✨ Eyqa Coworker';
+        const speaker = m.role === 'user' ? '### 👤 User' : '### ✨ eyqa';
         md += `${speaker}\n\n${m.content}\n\n---\n\n`;
       }
       this.canvasView.openWithDoc(`Export - ${this.currentSession.title}`, md, 'markdown');
@@ -251,33 +245,51 @@ class EyqaApp {
     }
   }
 
-  updateStatusPill() {
+  updateStatusPills() {
+    const p = this.settings.providers[this.settings.activeProviderId];
+    if (!p) return;
+
+    // Sidebar status
     const statusEl = document.getElementById('sidebarEngineStatus');
     if (statusEl) {
-      const p = this.settings.providers[this.settings.activeProviderId];
-      if (p) {
-        statusEl.innerHTML = `<span class="dot ${p.apiKey || p.id === 'ollama' ? 'green' : 'amber'}"></span> <span>${p.name} · ${p.badge}</span>`;
-      }
+      statusEl.innerHTML = `<span class="dot ${p.apiKey || p.id === 'ollama' ? 'green' : 'amber'}"></span> <span>${p.name} · ${p.badge}</span>`;
+    }
+
+    // Dock model pill
+    const dockModelLabel = document.getElementById('dockModelSelectorLabel');
+    if (dockModelLabel) {
+      dockModelLabel.textContent = `${p.name} (${p.model})`;
     }
   }
 
-  setupInputBar() {
+  setupDockInput() {
     const textarea = document.getElementById('chatInputTextarea');
     const sendBtn = document.getElementById('btnSendMessage');
     const stopBtn = document.getElementById('btnStopGeneration');
     const attachBtn = document.getElementById('btnAttachFile');
     const webToggleBtn = document.getElementById('btnToggleWebSearch');
+    const dockModelPill = document.getElementById('dockModelSelectorPill');
+
+    // Clicking dock model pill opens Settings
+    dockModelPill?.addEventListener('click', () => {
+      this.settingsView.open();
+    });
 
     // Auto-resizing textarea
     textarea?.addEventListener('input', () => {
       textarea.style.height = 'auto';
       textarea.style.height = Math.min(textarea.scrollHeight, 180) + 'px';
+      this.checkSlashCommand(textarea.value);
     });
 
     // Enter to send
     textarea?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter' && !e.shiftKey) {
         e.preventDefault();
+        const popover = document.getElementById('slashMenuPopover');
+        if (popover && !popover.hidden) {
+          popover.hidden = true;
+        }
         this.submitMessage();
       }
     });
@@ -309,6 +321,54 @@ class EyqaApp {
       webToggleBtn.classList.toggle('active', this.forceWebSearch);
       this.showToast(this.forceWebSearch ? 'Web Grounding: Enabled (Live DuckDuckGo)' : 'Web Grounding: Auto', 'info');
     });
+  }
+
+  setupSlashCommands() {
+    const popover = document.getElementById('slashMenuPopover');
+    const textarea = document.getElementById('chatInputTextarea');
+
+    popover?.querySelectorAll('.slash-item').forEach(item => {
+      item.addEventListener('click', (e) => {
+        const cmd = e.currentTarget.dataset.command;
+        popover.hidden = true;
+
+        if (cmd === '/free-setup') {
+          this.settingsView.open();
+          this.settingsView.activeTab = 'free';
+          this.settingsView.render();
+          textarea.value = '';
+          return;
+        }
+
+        if (cmd === '/draft') {
+          textarea.value = 'Draft a complete proposal for: ';
+        } else if (cmd === '/research') {
+          textarea.value = 'Research the live web and summarize: ';
+          this.forceWebSearch = true;
+          document.getElementById('btnToggleWebSearch')?.classList.add('active');
+        } else if (cmd === '/summarize') {
+          textarea.value = 'Summarize the attached document or current workspace overview.';
+        } else if (cmd === '/plan') {
+          textarea.value = 'Create a step-by-step action plan to accomplish: ';
+        } else if (cmd === '/code') {
+          textarea.value = 'Write a clean script to automate: ';
+        }
+
+        textarea.focus();
+        textarea.selectionStart = textarea.selectionEnd = textarea.value.length;
+      });
+    });
+  }
+
+  checkSlashCommand(text) {
+    const popover = document.getElementById('slashMenuPopover');
+    if (!popover) return;
+
+    if (text.trim() === '/') {
+      popover.hidden = false;
+    } else {
+      popover.hidden = true;
+    }
   }
 
   _renderAttachmentPill() {
@@ -356,7 +416,7 @@ class EyqaApp {
     this.attachedFile = null;
     this._renderAttachmentPill();
 
-    // Set first message title if default
+    // Set first message title
     if (this.currentSession.messages.length === 0) {
       this.currentSession.title = content.slice(0, 32) || 'Conversation';
     }
@@ -434,9 +494,11 @@ class EyqaApp {
         e.preventDefault();
         this.settingsView.open();
       }
-      // Escape: close modals / canvas
+      // Escape: close modals & popovers
       if (e.key === 'Escape') {
         this.settingsView.close();
+        const popover = document.getElementById('slashMenuPopover');
+        if (popover) popover.hidden = true;
       }
     });
   }
@@ -444,7 +506,7 @@ class EyqaApp {
   onSettingsUpdated(newSettings) {
     this.settings = newSettings;
     this.updateTopBar();
-    this.updateStatusPill();
+    this.updateStatusPills();
     this._updateWorkspaceLabel();
   }
 

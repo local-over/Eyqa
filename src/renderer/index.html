@@ -3,43 +3,36 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Eyqa - The AI Coworker</title>
+  <title>Eyqa - The Everyday AI Coworker</title>
+  <link rel="icon" type="image/png" href="assets/eyqa-logo.png">
   <link rel="stylesheet" href="css/app.css">
   <link rel="stylesheet" href="css/markdown.css">
   <link rel="stylesheet" href="css/canvas.css">
 </head>
 <body class="theme-dark">
   <div class="app-layout">
-    <!-- Left Sidebar -->
+    <!-- Left Sidebar (Antigravity Style) -->
     <aside class="app-sidebar">
+      <!-- Brand Header with Official Eyqa Mascot Logo -->
       <div class="sidebar-brand-row">
         <div class="brand-group">
-          <div class="brand-icon">
-            <svg viewBox="0 0 32 32" fill="none" width="28" height="28">
-              <defs>
-                <linearGradient id="logoGrad" x1="2" y1="2" x2="30" y2="30" gradientUnits="userSpaceOnUse">
-                  <stop stop-color="#6366F1" />
-                  <stop offset="0.5" stop-color="#8B5CF6" />
-                  <stop offset="1" stop-color="#EC4899" />
-                </linearGradient>
-              </defs>
-              <rect width="32" height="32" rx="9" fill="url(#logoGrad)" />
-              <path d="M9 16C9 12.134 12.134 9 16 9C19.866 9 23 12.134 23 16C23 19.866 19.866 23 16 23C13.5 23 11.3 21.7 10 19.8" stroke="white" stroke-width="2.5" stroke-linecap="round" />
-              <path d="M16 16H23" stroke="white" stroke-width="2.5" stroke-linecap="round" />
-              <circle cx="21" cy="21" r="2" fill="white" />
-            </svg>
+          <div class="brand-avatar-box">
+            <img src="assets/eyqa-logo.png" alt="Eyqa" class="brand-avatar-img" />
           </div>
           <div class="brand-titles">
-            <h1 class="brand-name">Eyqa</h1>
+            <h1 class="brand-name">eyqa</h1>
             <span class="brand-tagline">AI Coworker</span>
           </div>
         </div>
       </div>
 
+      <!-- New Chat Action Button -->
       <div class="sidebar-action-section">
         <button id="btnNewChat" class="primary-btn-new-chat">
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span>New Chat</span>
+          <div class="btn-new-chat-left">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            <span>New Chat</span>
+          </div>
           <kbd class="shortcut-kbd">Ctrl+N</kbd>
         </button>
       </div>
@@ -47,11 +40,11 @@
       <!-- Mode & Workspace Controls -->
       <div class="sidebar-card-controls">
         <div class="sidebar-control-group">
-          <label class="sidebar-control-label">COWORKER MODE</label>
+          <label class="sidebar-control-label">AGENT MODE</label>
           <select id="sidebarModeSelect" class="sidebar-select">
-            <option value="coworker">🤝 Everyday Coworker</option>
-            <option value="web_researcher">🌐 Web Explorer & Research</option>
-            <option value="file_manager">📁 Docs & Files Manager</option>
+            <option value="coworker">✨ Everyday Coworker</option>
+            <option value="web_researcher">🌐 Deep Web Explorer</option>
+            <option value="file_manager">📁 Workspace & Docs</option>
             <option value="coder">⚡ Code & Automate</option>
           </select>
         </div>
@@ -61,7 +54,7 @@
             <label class="sidebar-control-label">WORKSPACE</label>
             <button id="sidebarWorkspaceBtn" class="btn-change-folder">Browse...</button>
           </div>
-          <div class="workspace-pill-display" id="sidebarWorkspaceLabel">
+          <div class="workspace-pill-display" id="sidebarWorkspaceLabel" title="Active local folder">
             Default Workspace
           </div>
         </div>
@@ -77,23 +70,23 @@
         </div>
       </div>
 
-      <!-- Bottom Sidebar Toolbar -->
+      <!-- Bottom Sidebar Footer -->
       <div class="sidebar-bottom-bar">
-        <div class="sidebar-engine-status" id="sidebarEngineStatus">
-          <span class="dot green"></span> <span>Checking status...</span>
+        <div class="sidebar-engine-status" id="sidebarEngineStatus" title="Active AI provider status">
+          <span class="dot green"></span> <span>Ready</span>
         </div>
         <div class="sidebar-bottom-actions">
-          <button id="btnFreeAiGuide" class="sidebar-icon-btn" title="Free AI Setup Guide">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
+          <button id="btnFreeAiGuide" class="sidebar-icon-btn" title="Free AI Setup (Zero Cost)">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
           </button>
           <button id="btnOpenSettings" class="sidebar-icon-btn" title="Settings (Ctrl+,)">
-            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
           </button>
         </div>
       </div>
     </aside>
 
-    <!-- Main Chat Workspace -->
+    <!-- Main Chat Workspace (Antigravity 2.0 Canvas Style) -->
     <main class="app-main">
       <!-- Top Navigation Bar -->
       <header class="app-topbar">
@@ -105,14 +98,14 @@
         </div>
 
         <div class="topbar-right">
-          <button id="btnToggleCanvas" class="topbar-btn" title="Toggle Coworker Canvas (Side-by-Side)">
+          <button id="btnToggleCanvas" class="topbar-btn" title="Toggle Auxiliary Coworker Canvas (Side-by-Side)">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="14" y1="3" x2="14" y2="21"></line></svg>
             <span>Canvas</span>
           </button>
           <button id="btnExportChat" class="topbar-icon-btn" title="Export Conversation">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
           </button>
-          <button id="btnClearChat" class="topbar-icon-btn" title="Clear Conversation Messages">
+          <button id="btnClearChat" class="topbar-icon-btn" title="Clear Messages">
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
           </button>
         </div>
@@ -123,39 +116,77 @@
         <!-- Rendered by chat-view.js -->
       </section>
 
-      <!-- Bottom Chat Input Bar -->
-      <footer class="app-input-section">
-        <div class="input-card-container">
-          <div id="chatAttachmentPreview" class="attachment-preview-row" hidden></div>
-
-          <div class="input-textarea-row">
-            <textarea
-              id="chatInputTextarea"
-              class="chat-textarea"
-              placeholder="Message Eyqa (e.g. 'Draft a project outline', 'Search web for AI news', 'Inspect my folder')..."
-              rows="1"
-            ></textarea>
+      <!-- Floating Antigravity Prompt Dock -->
+      <footer class="app-dock-section">
+        <!-- Slash Command Autocomplete Popover -->
+        <div id="slashMenuPopover" class="slash-menu-popover" hidden>
+          <div class="slash-item" data-command="/draft">
+            <strong>/draft</strong> <span>Draft an executive document, proposal, or letter</span>
           </div>
+          <div class="slash-item" data-command="/research">
+            <strong>/research</strong> <span>Live web research with DuckDuckGo grounding</span>
+          </div>
+          <div class="slash-item" data-command="/summarize">
+            <strong>/summarize</strong> <span>Summarize an attached document or website</span>
+          </div>
+          <div class="slash-item" data-command="/plan">
+            <strong>/plan</strong> <span>Generate a step-by-step project plan</span>
+          </div>
+          <div class="slash-item" data-command="/code">
+            <strong>/code</strong> <span>Write or debug an automation script</span>
+          </div>
+          <div class="slash-item" data-command="/free-setup">
+            <strong>/free-setup</strong> <span>Open 1-minute Free AI Keys guide</span>
+          </div>
+        </div>
 
-          <div class="input-controls-row">
-            <div class="input-controls-left">
-              <button id="btnAttachFile" class="input-action-btn" title="Attach file from computer">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
-                <span>Attach</span>
-              </button>
-              <button id="btnToggleWebSearch" class="input-action-btn" title="Force Live DuckDuckGo Web Grounding">
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+        <div class="antigravity-dock-card">
+          <!-- Attachment Preview Row -->
+          <div id="chatAttachmentPreview" class="dock-attachment-row" hidden></div>
+
+          <!-- Dock Top Control Pills (Antigravity Style) -->
+          <div class="dock-pills-row">
+            <div class="dock-pills-left">
+              <!-- Quick Model Selector in Dock -->
+              <div class="dock-model-pill" id="dockModelSelectorPill" title="Switch active model">
+                <span class="dot green"></span>
+                <span id="dockModelSelectorLabel">Gemini 2.0 Flash</span>
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"></polyline></svg>
+              </div>
+
+              <!-- Web Grounding Toggle Pill -->
+              <button id="btnToggleWebSearch" class="dock-pill-btn" title="Force Live DuckDuckGo Web Grounding">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                 <span>Live Web</span>
+              </button>
+
+              <!-- Attach File Pill -->
+              <button id="btnAttachFile" class="dock-pill-btn" title="Attach document or file from computer">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                <span>Attach</span>
               </button>
             </div>
 
-            <div class="input-controls-right">
-              <span class="input-hint-kbd">Press <strong>Enter</strong> to send</span>
-              <button id="btnSendMessage" class="btn-send" title="Send message">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
+            <div class="dock-pills-right">
+              <span class="dock-hint-text">Type <strong>/</strong> for commands</span>
+            </div>
+          </div>
+
+          <!-- Prompt Textarea -->
+          <div class="dock-input-row">
+            <textarea
+              id="chatInputTextarea"
+              class="dock-textarea"
+              placeholder="Ask Eyqa anything... (e.g. 'Draft a project proposal', 'Search latest news on AI', or type /)"
+              rows="1"
+            ></textarea>
+
+            <div class="dock-send-actions">
+              <button id="btnSendMessage" class="dock-btn-send" title="Send message (Enter)">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"></line><polyline points="5 12 12 5 19 12"></polyline></svg>
               </button>
-              <button id="btnStopGeneration" class="btn-stop" title="Stop generating" hidden>
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
+              <button id="btnStopGeneration" class="dock-btn-stop" title="Stop generating" hidden>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor"><rect x="4" y="4" width="16" height="16" rx="3"></rect></svg>
               </button>
             </div>
           </div>
@@ -163,7 +194,7 @@
       </footer>
     </main>
 
-    <!-- Side-by-Side Coworker Canvas (Split View) -->
+    <!-- Side-by-Side Coworker Canvas (Antigravity Auxiliary Pane) -->
     <aside class="app-canvas-panel" id="coworkerCanvasContainer">
       <!-- Rendered by canvas-view.js -->
     </aside>

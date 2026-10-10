@@ -1,6 +1,7 @@
 /**
- * Eyqa Chat View
- * Handles real-time message stream rendering, thought accordions, tool badges, and user input.
+ * Eyqa Chat View (Antigravity 2.0 Style)
+ * Renders the conversational stream with Eyqa mascot avatar,
+ * Antigravity interleaved thinking accordions, tool step cards, and artifact triggers.
  */
 
 import { icons } from './icons.js';
@@ -46,42 +47,44 @@ export class ChatView {
   _renderWelcomeHero() {
     this.container.innerHTML = `
       <div class="welcome-hero-container">
-        <div class="welcome-hero-mark">${icons.eyqaLogo}</div>
-        <h2 class="welcome-hero-title">Meet Eyqa, your AI coworker.</h2>
+        <div class="welcome-mascot-box">
+          <img src="assets/eyqa-logo.png" alt="Eyqa" class="welcome-mascot-img" />
+        </div>
+        <h2 class="welcome-hero-title">meet eyqa, your ai coworker.</h2>
         <p class="welcome-hero-subtitle">
-          Designed for everyday work. Ask questions, research the live web, analyze documents, and draft proposals without writing a line of code.
+          Designed for everyday work. Ask questions, research the live web, draft executive proposals, and organize local documents without writing code.
         </p>
 
         <div class="starter-cards-grid">
-          <div class="starter-card" data-prompt="Draft a clear, professional project proposal with goals, milestones, and deliverables.">
+          <div class="starter-card" data-prompt="Draft a clear, executive-ready project proposal with objectives, milestones, and deliverables.">
             <span class="starter-icon">${icons.briefcase}</span>
             <div class="starter-card-body">
               <strong>Draft a Proposal or Document</strong>
-              <p>Create clean, executive-ready proposals, emails, or plans.</p>
+              <p>Create clean, professional proposals, emails, or plans.</p>
             </div>
           </div>
 
-          <div class="starter-card" data-prompt="Search the web for the latest artificial intelligence breakthroughs and summarize the top 3 developments with sources.">
+          <div class="starter-card" data-prompt="Search the web for the latest artificial intelligence developments in 2026 and summarize key breakthroughs with sources.">
             <span class="starter-icon">${icons.globe}</span>
             <div class="starter-card-body">
-              <strong>Live Web Research</strong>
+              <strong>Deep Live Web Research</strong>
               <p>Explore real-time internet news, market reports, and facts.</p>
             </div>
           </div>
 
-          <div class="starter-card" data-prompt="Scan my workspace directory and create a structured README and overview document.">
+          <div class="starter-card" data-prompt="Examine my workspace folder and summarize all documents, files, and key action items.">
             <span class="starter-icon">${icons.folder}</span>
             <div class="starter-card-body">
-              <strong>Explore Workspace Files</strong>
-              <p>Organize, read, and summarize documents on your computer.</p>
+              <strong>Workspace & Local Files</strong>
+              <p>Read, summarize, and draft documents directly on your computer.</p>
             </div>
           </div>
 
-          <div class="starter-card" data-prompt="Write a lightweight automation script in Python or Node.js to organize downloaded files by date and type.">
+          <div class="starter-card" data-prompt="Write a clean automation script to organize local files and explain step-by-step how to run it.">
             <span class="starter-icon">${icons.code}</span>
             <div class="starter-card-body">
               <strong>Code & Automate</strong>
-              <p>Create automation scripts, fix bugs, or build tools.</p>
+              <p>Generate clean scripts, fix errors, or automate repetitive tasks.</p>
             </div>
           </div>
         </div>
@@ -119,13 +122,19 @@ export class ChatView {
     if (msg.role === 'assistant') {
       const hasThought = Boolean(msg.thought && msg.thought.trim());
       const hasTools = Boolean(msg.tools && msg.tools.length > 0);
+      const isSubstantialDoc = msg.content && (msg.content.length > 300 || msg.content.includes('```'));
 
       return `
         <div class="message-row assistant-row" data-index="${idx}">
-          <div class="assistant-avatar">${icons.eyqaLogo}</div>
+          <div class="assistant-avatar-box">
+            <img src="assets/eyqa-logo.png" alt="Eyqa" class="assistant-avatar-img" />
+          </div>
           <div class="assistant-card">
             <div class="assistant-card-header">
-              <span class="assistant-name">Eyqa Coworker</span>
+              <div class="assistant-name">
+                <span>eyqa</span>
+                <span class="assistant-role-tag">Coworker</span>
+              </div>
               ${msg.provider ? `
                 <span class="assistant-provider-pill">${this._escape(msg.provider.name || '')}</span>
               ` : ''}
@@ -150,6 +159,22 @@ export class ChatView {
               ${renderMarkdown(msg.content)}
             </div>
 
+            ${isSubstantialDoc ? `
+              <div class="artifact-preview-card" data-content="${encodeURIComponent(msg.content)}">
+                <div class="artifact-info">
+                  ${icons.canvas}
+                  <div>
+                    <span class="artifact-title">Generated Artifact / Document</span>
+                    <small style="display:block; color: var(--text-muted); font-size: 11px;">View, edit, or save directly to local workspace</small>
+                  </div>
+                </div>
+                <button class="artifact-open-btn">
+                  <span>Open in Canvas</span>
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+                </button>
+              </div>
+            ` : ''}
+
             <div class="assistant-card-actions">
               <button class="msg-action-btn btn-open-canvas" data-content="${encodeURIComponent(msg.content)}" title="Open in Canvas">
                 ${icons.canvas} <span>Open in Canvas</span>
@@ -169,16 +194,17 @@ export class ChatView {
   _renderToolBadge(tool) {
     const isSearch = tool.name === 'web_search';
     const isFetch = tool.name === 'web_fetch';
-    const isWorkspace = tool.name.startsWith('workspace_');
-
-    const label = isSearch ? `Searched: "${tool.arguments?.query || ''}"`
-                : isFetch ? `Read page: ${tool.arguments?.url || ''}`
-                : `Workspace: ${tool.arguments?.filePath || tool.name}`;
+    const label = isSearch ? `DuckDuckGo Search: "${tool.arguments?.query || ''}"`
+                : isFetch ? `Read Webpage: ${tool.arguments?.url || ''}`
+                : `Workspace File: ${tool.arguments?.filePath || tool.name}`;
 
     return `
       <div class="tool-badge-card">
-        <span class="tool-icon">${isSearch ? icons.search : isFetch ? icons.globe : icons.folder}</span>
-        <span class="tool-label">${this._escape(label)}</span>
+        <div class="tool-left">
+          ${isSearch ? icons.search : isFetch ? icons.globe : icons.folder}
+          <span>${this._escape(label)}</span>
+        </div>
+        <span class="tool-status-pill">Completed</span>
       </div>
     `;
   }
@@ -188,7 +214,6 @@ export class ChatView {
     this.accumulatedContent = '';
     this.accumulatedThought = '';
 
-    // If empty welcome hero was showing, initialize messages container
     let scrollEl = document.getElementById('chatMessagesScroll');
     if (!scrollEl) {
       this.container.innerHTML = `
@@ -214,15 +239,20 @@ export class ChatView {
     `;
     listEl.appendChild(userRow);
 
-    // Append Assistant Placeholder
+    // Append Assistant Placeholder with Eyqa Mascot Avatar
     const assistantRow = document.createElement('div');
     assistantRow.className = 'message-row assistant-row streaming';
     assistantRow.innerHTML = `
-      <div class="assistant-avatar">${icons.eyqaLogo}</div>
+      <div class="assistant-avatar-box">
+        <img src="assets/eyqa-logo.png" alt="Eyqa" class="assistant-avatar-img" />
+      </div>
       <div class="assistant-card">
         <div class="assistant-card-header">
-          <span class="assistant-name">Eyqa Coworker</span>
-          <span class="streaming-pulse-indicator">Generating…</span>
+          <div class="assistant-name">
+            <span>eyqa</span>
+            <span class="assistant-role-tag">Coworker</span>
+          </div>
+          <span class="streaming-pulse-indicator">Thinking & generating…</span>
         </div>
         <div class="thought-accordion" id="streamThoughtBox" hidden>
           <button class="thought-header-toggle">
@@ -272,13 +302,16 @@ export class ChatView {
       badge.className = 'tool-badge-card';
       const isSearch = toolInfo.name === 'web_search';
       const isFetch = toolInfo.name === 'web_fetch';
-      const label = isSearch ? `Searching: "${toolInfo.arguments?.query || ''}"...`
-                  : isFetch ? `Reading: ${toolInfo.arguments?.url || ''}...`
-                  : `Scanning: ${toolInfo.arguments?.filePath || toolInfo.name}...`;
+      const label = isSearch ? `DuckDuckGo Search: "${toolInfo.arguments?.query || ''}"`
+                  : isFetch ? `Read Webpage: ${toolInfo.arguments?.url || ''}`
+                  : `Workspace: ${toolInfo.arguments?.filePath || toolInfo.name}`;
 
       badge.innerHTML = `
-        <span class="tool-icon">${isSearch ? icons.search : isFetch ? icons.globe : icons.folder}</span>
-        <span class="tool-label">${this._escape(label)}</span>
+        <div class="tool-left">
+          ${isSearch ? icons.search : isFetch ? icons.globe : icons.folder}
+          <span>${this._escape(label)}</span>
+        </div>
+        <span class="tool-status-pill" style="color: var(--warning); background: rgba(245, 158, 11, 0.15);">Running...</span>
       `;
       toolsBox.appendChild(badge);
       this.scrollToBottom();
@@ -291,7 +324,7 @@ export class ChatView {
       const notice = document.createElement('div');
       notice.className = 'fallback-notice-banner';
       notice.innerHTML = `
-        <span>🛡️ Rate limit reached on ${this._escape(info.previousProvider)}. Automatically continuing with ${this._escape(info.currentProvider)}...</span>
+        <span>🛡️ Rate limit on ${this._escape(info.previousProvider)}. Seamlessly continuing turn with ${this._escape(info.currentProvider)}...</span>
       `;
       toolsBox.appendChild(notice);
       this.scrollToBottom();
@@ -305,13 +338,40 @@ export class ChatView {
       const pulse = this.streamingAssistantEl.querySelector('.streaming-pulse-indicator');
       if (pulse) pulse.remove();
 
-      // Remove typing cursor
+      // Update all tool badges in stream to Completed
+      this.streamingAssistantEl.querySelectorAll('.tool-status-pill').forEach(pill => {
+        pill.textContent = 'Completed';
+        pill.style.color = 'var(--success)';
+        pill.style.background = 'rgba(16, 185, 129, 0.15)';
+      });
+
       if (this.streamingContentEl) {
         this.streamingContentEl.innerHTML = renderMarkdown(this.accumulatedContent);
       }
 
-      // Add actions
+      // Check if artifact preview card should be appended
       const card = this.streamingAssistantEl.querySelector('.assistant-card');
+      if (card && this.accumulatedContent && (this.accumulatedContent.length > 300 || this.accumulatedContent.includes('```'))) {
+        const artifactCard = document.createElement('div');
+        artifactCard.className = 'artifact-preview-card';
+        artifactCard.dataset.content = encodeURIComponent(this.accumulatedContent);
+        artifactCard.innerHTML = `
+          <div class="artifact-info">
+            ${icons.canvas}
+            <div>
+              <span class="artifact-title">Generated Artifact / Document</span>
+              <small style="display:block; color: var(--text-muted); font-size: 11px;">View, edit, or save directly to local workspace</small>
+            </div>
+          </div>
+          <button class="artifact-open-btn">
+            <span>Open in Canvas</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+          </button>
+        `;
+        card.appendChild(artifactCard);
+      }
+
+      // Add actions
       if (card) {
         const actions = document.createElement('div');
         actions.className = 'assistant-card-actions';
@@ -352,6 +412,16 @@ export class ChatView {
       };
     });
 
+    // Artifact Card Clicks
+    this.container.querySelectorAll('.artifact-preview-card').forEach(card => {
+      card.onclick = (e) => {
+        const content = decodeURIComponent(e.currentTarget.dataset.content || '');
+        if (this.onCanvasOpen) {
+          this.onCanvasOpen('Generated Document', content, 'markdown');
+        }
+      };
+    });
+
     // Copy message button
     this.container.querySelectorAll('.btn-copy-msg').forEach(btn => {
       btn.onclick = async (e) => {
@@ -365,7 +435,7 @@ export class ChatView {
       };
     });
 
-    // Open in canvas
+    // Open in canvas button
     this.container.querySelectorAll('.btn-open-canvas').forEach(btn => {
       btn.onclick = (e) => {
         const content = decodeURIComponent(e.currentTarget.dataset.content || '');

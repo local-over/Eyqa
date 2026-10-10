@@ -34,7 +34,9 @@ export class SettingsView {
       <div class="settings-modal-dialog">
         <div class="settings-header">
           <div class="settings-title-group">
-            <span class="settings-logo-pill">${icons.sparkles}</span>
+            <div class="settings-logo-pill">
+              <img src="assets/eyqa-logo.png" alt="Eyqa" />
+            </div>
             <div>
               <h3>Settings & AI Engines</h3>
               <p>Configure free or paid AI models, web tools, and active workspace.</p>
