@@ -118,6 +118,24 @@ Eyqa includes automated multi-provider routing supporting the world's best free 
 
 Eyqa is built with Electron and runs cross-platform on **Linux**, **Windows**, and **macOS**.
 
+### 📦 Pre-Built Binaries (Early Beta)
+
+Download ready-to-run desktop packages directly from the [v0.9.0-beta Release](https://github.com/local-over/Eyqa/releases/tag/v0.9.0-beta):
+
+| Operating System | Format | Direct Download |
+| :--- | :--- | :--- |
+| **Linux (Universal)** | Standalone AppImage | [⬇️ Eyqa-0.9.0-beta.AppImage](https://github.com/local-over/Eyqa/releases/download/v0.9.0-beta/Eyqa-0.9.0-beta.AppImage) |
+| **Linux (Debian / Ubuntu)** | .deb Package | [⬇️ eyqa_0.9.0-beta_amd64.deb](https://github.com/local-over/Eyqa/releases/download/v0.9.0-beta/eyqa_0.9.0-beta_amd64.deb) |
+| **Windows & macOS** | Native Installers | *Building via CI matrix / Run from source below* |
+
+```bash
+# To run the AppImage on Linux:
+chmod +x Eyqa-0.9.0-beta.AppImage
+./Eyqa-0.9.0-beta.AppImage
+```
+
+---
+
 ### Option A: Run from Source (All Platforms)
 
 1. **Install Prerequisites**:

@@ -22,10 +22,14 @@
     "desktop-app",
     "agents"
   ],
-  "author": "Eyqa",
+  "author": {
+    "name": "Eyqa Team",
+    "email": "team@eyqa.app"
+  },
   "license": "AGPL-3.0-only",
   "devDependencies": {
-    "electron": "^44.7.0"
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
   },
   "build": {
     "appId": "com.eyqa.app",
@@ -34,15 +38,26 @@
       "output": "dist"
     },
     "linux": {
-      "target": ["AppImage", "deb"],
-      "category": "Utility"
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "maintainer": "team@eyqa.app",
+      "category": "Utility",
+      "icon": "assets/logo/eyqa-logo.png"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.productivity"
     },
     "win": {
-      "target": ["nsis", "portable"]
+      "target": [
+        "nsis",
+        "portable"
+      ]
     }
   }
 }
