@@ -9,44 +9,188 @@
   <link rel="stylesheet" href="css/markdown.css">
 </head>
 <body class="theme-dark">
+
+  <!-- Startup Splash Screen with Multi-Frame Mascot Sequence -->
+  <div id="splashScreen" class="splash-screen">
+    <div class="splash-ambient-aurora"></div>
+    <div class="splash-mascot-stage" id="splashMascotStage">
+      <div class="splash-halo-glow"></div>
+      <div class="splash-orbit-ring"></div>
+      <div class="splash-mascot-wrapper">
+        <img src="assets/frames/eyqa_far.png" alt="Eyqa Mascot" class="splash-frame-img frame-far" id="splashMascotImg">
+      </div>
+      <div class="splash-brand-lockup">
+        <span class="splash-brand-title">eyqa</span>
+        <span class="splash-brand-tagline">everyday ai coworker</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Setup Flow -->
+  <div id="setupOverlay" class="setup-overlay">
+    <div class="setup-container">
+      
+      <!-- Step 1: Welcome & Path Selection -->
+      <div class="setup-step active" id="setupStepPathSelection">
+        <div class="setup-mascot-header" style="text-align: center; margin-bottom: 14px;">
+          <img src="assets/frames/eyqa_close.png" alt="Eyqa" class="setup-mascot animated-mascot" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 4px 16px rgba(0,0,0,0.4);" />
+        </div>
+        <h1 class="setup-title">Welcome to Eyqa</h1>
+        <p class="setup-subtitle">Select how you want to connect your AI Engine.</p>
+        
+        <div class="setup-paths" style="display: flex; flex-direction: column; gap: 10px; margin-top: 20px;">
+          <button class="path-btn" id="btnPathA" style="text-align: left; padding: 14px; border: 1px solid var(--border-medium); border-radius: 8px; background: var(--bg-surface); cursor: pointer; transition: all 0.15s ease;">
+            <h3 style="margin: 0 0 4px 0; font-size: 15px; color: var(--text-primary); font-weight: 600;">Path A: Free Route (Automated Pool)</h3>
+            <p style="margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.4;">Automated free tiers (OpenRouter Free Pool, Google Gemini, Groq, NVIDIA NIM, Qwen) for hundreds of thousands of free monthly tokens.</p>
+          </button>
+          <button class="path-btn" id="btnPathB" style="text-align: left; padding: 14px; border: 1px solid var(--border-medium); border-radius: 8px; background: var(--bg-surface); cursor: pointer; transition: all 0.15s ease;">
+            <h3 style="margin: 0 0 4px 0; font-size: 15px; color: var(--text-primary); font-weight: 600;">Path B: Paid Frontier Models</h3>
+            <p style="margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.4;">Pick one provider (OpenAI, Anthropic Claude, or DeepSeek) and enter your single API key.</p>
+          </button>
+          <button class="path-btn" id="btnPathC" style="text-align: left; padding: 14px; border: 1px solid var(--border-medium); border-radius: 8px; background: var(--bg-surface); cursor: pointer; transition: all 0.15s ease;">
+            <h3 style="margin: 0 0 4px 0; font-size: 15px; color: var(--text-primary); font-weight: 600;">Path C: Instant Start / Auto-Detect</h3>
+            <p style="margin: 0; font-size: 12px; color: var(--text-secondary); line-height: 1.4;">Auto-import existing keys from your environment or continue with default settings.</p>
+          </button>
+        </div>
+      </div>
+
+      <!-- Path A: Free Route Details -->
+      <div class="setup-step" id="setupStepPathA" style="display: none;">
+        <h2 class="setup-title">Free AI Providers</h2>
+        <p class="setup-subtitle">Click the links to get your free API keys in 1 minute.</p>
+        <div class="setup-form" style="max-height: 320px; overflow-y: auto; padding-right: 6px;">
+          <div class="form-group">
+            <label><a href="https://openrouter.ai/keys" target="_blank" style="color: #ffffff; text-decoration: underline;">OpenRouter Free Pool (DeepSeek, Llama, Gemma) ↗</a></label>
+            <input type="password" id="setupKeyOpenRouterFree" placeholder="sk-or-v1-..." class="setup-input">
+          </div>
+          <div class="form-group">
+            <label><a href="https://aistudio.google.com/app/apikey" target="_blank" style="color: #ffffff; text-decoration: underline;">Google Gemini AI Studio (15 req/min Free) ↗</a></label>
+            <input type="password" id="setupKeyGemini" placeholder="AIzaSy..." class="setup-input">
+          </div>
+          <div class="form-group">
+            <label><a href="https://console.groq.com/keys" target="_blank" style="color: #ffffff; text-decoration: underline;">Groq Llama 3.3 70B (Ultra-Fast Free) ↗</a></label>
+            <input type="password" id="setupKeyGroq" placeholder="gsk_..." class="setup-input">
+          </div>
+          <div class="form-group">
+            <label><a href="https://build.nvidia.com/explore/discover" target="_blank" style="color: #ffffff; text-decoration: underline;">NVIDIA NIM Nemotron 120B (Free) ↗</a></label>
+            <input type="password" id="setupKeyNvidia" placeholder="nvapi-..." class="setup-input">
+          </div>
+          <div class="form-group">
+            <label><a href="https://dash.aliyun.com/" target="_blank" style="color: #ffffff; text-decoration: underline;">Qwen Cloud (Alibaba Free Tier) ↗</a></label>
+            <input type="password" id="setupKeyQwen" placeholder="sk-..." class="setup-input">
+          </div>
+        </div>
+        <div class="setup-actions split">
+          <button class="btn-secondary" id="btnBackFromPathA">Back</button>
+          <button class="btn-primary" id="btnNextFromPathA">Continue</button>
+        </div>
+      </div>
+
+      <!-- Path B: Simple Paid Route -->
+      <div class="setup-step" id="setupStepPathB" style="display: none;">
+        <h2 class="setup-title">Simple Paid Route</h2>
+        <p class="setup-subtitle">Choose your preferred provider and enter your API key.</p>
+        <div class="setup-form">
+          <div class="form-group">
+            <label>AI Provider</label>
+            <select id="setupPaidProvider" class="setup-input" style="background: var(--bg-surface); color: var(--text-primary);">
+              <option value="openai">OpenAI (GPT-4o, o3-mini)</option>
+              <option value="anthropic">Anthropic Claude (Claude 3.5 Sonnet)</option>
+              <option value="deepseek">DeepSeek (DeepSeek V3, R1)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>API Key</label>
+            <input type="password" id="setupPaidKey" placeholder="Paste your API key here..." class="setup-input">
+          </div>
+        </div>
+        <div class="setup-actions split">
+          <button class="btn-secondary" id="btnBackFromPathB">Back</button>
+          <button class="btn-primary" id="btnNextFromPathB">Continue</button>
+        </div>
+      </div>
+
+      <!-- Step 2: First Workspace -->
+      <div class="setup-step" id="setupStepWorkspace" style="display: none;">
+        <h2 class="setup-title">Create your first Workspace</h2>
+        <p class="setup-subtitle">A workspace holds your chats and optionally links to a local project folder.</p>
+        <div class="setup-form">
+          <div class="form-group">
+            <label>Workspace Name</label>
+            <input type="text" id="setupProjName" placeholder="e.g. Eyqa Development" class="setup-input" value="My First Workspace">
+          </div>
+          <div class="form-group">
+            <label>Linked Directory (Optional)</label>
+            <div style="display:flex; gap: 8px;">
+              <input type="text" id="setupProjPath" placeholder="No folder linked (pure chat mode)" class="setup-input" readonly>
+              <button class="btn-secondary" id="btnSetupSelectFolder">Browse</button>
+            </div>
+          </div>
+        </div>
+        <div class="setup-actions split">
+          <button class="btn-secondary" id="btnSetupBackWorkspace">Back</button>
+          <button class="btn-primary" id="btnSetupFinish">Create Workspace & Finish</button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Native New Project Modal -->
+  <div id="newProjectModal" class="setup-overlay" style="display: none;">
+    <div class="setup-container">
+      <div class="setup-step active">
+        <h2 class="setup-title">Create New Project</h2>
+        <p class="setup-subtitle">Organize chats, shared architecture memory, and versioned changes under a project workspace.</p>
+        <div class="setup-form">
+          <div class="form-group">
+            <label>Project Name <span style="color: #ef4444;">*</span></label>
+            <input type="text" id="newProjectName" placeholder="e.g. Core App" class="setup-input" value="New Project">
+          </div>
+          <div class="form-group">
+            <label>Project Directory (Mandatory) <span style="color: #ef4444;">*</span></label>
+            <div style="display:flex; gap: 8px;">
+              <input type="text" id="newProjectPath" placeholder="Select project folder..." class="setup-input" readonly>
+              <button class="btn-secondary" id="btnNewProjectSelectFolder">Browse</button>
+            </div>
+            <p style="font-size: 11px; color: var(--text-muted); margin-top: 4px;">Every project requires a local workspace directory to store code, versioned changelogs, and shared memory.</p>
+          </div>
+        </div>
+        <div class="setup-actions split">
+          <button class="btn-secondary" id="btnNewProjectCancel">Cancel</button>
+          <button class="btn-primary" id="btnNewProjectCreate">Create Project</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <div class="app-layout">
-    <!-- Left Sidebar (Clean ChatGPT / Claude Desktop Style) -->
+    <!-- Left Sidebar -->
     <aside class="app-sidebar" id="appSidebar">
       <!-- Sidebar Header -->
       <div class="sidebar-header">
         <div class="brand-item" id="brandHomeLink" title="Eyqa">
-          <img src="assets/eyqa-logo.png" alt="Eyqa" class="brand-logo" />
+          <img src="assets/frames/eyqa_close.png" alt="Eyqa" class="brand-logo animated-mascot" id="sidebarBrandMascot" />
           <span class="brand-name">eyqa</span>
         </div>
-        <button id="btnNewChat" class="btn-new-chat-action" title="New Chat (Ctrl+N)">
-          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-          <span>New Chat</span>
-        </button>
+        <div class="sidebar-header-actions">
+          <button id="btnQuickChat" class="sidebar-icon-btn" title="Quick Chat (instant scratchpad)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path></svg>
+          </button>
+          <button id="btnHeaderNewProject" class="sidebar-icon-btn" title="Create New Project">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
       </div>
 
       <!-- Navigation & Lists Container -->
       <div class="sidebar-scroll-area">
-        <!-- Section 1: Standard Conversations (When we just chat) -->
         <div class="sidebar-section">
           <div class="sidebar-section-header">
-            <span class="sidebar-section-title">CHATS</span>
+            <span class="sidebar-section-title">PROJECTS</span>
           </div>
-          <div class="sidebar-items-list" id="sidebarChatsList">
-            <div class="loading-spinner">Loading chats...</div>
-          </div>
-        </div>
-
-        <!-- Section 2: Projects & Folders (When to work in a folder) -->
-        <div class="sidebar-section">
-          <div class="sidebar-section-header">
-            <span class="sidebar-section-title">PROJECTS & FOLDERS</span>
-            <button id="btnSidebarOpenFolder" class="btn-section-action" title="Open or link a folder from your computer">
-              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>
-              <span>Open Folder</span>
-            </button>
-          </div>
-          <div class="sidebar-items-list" id="sidebarFoldersList">
-            <div class="sidebar-empty-state">No linked folders yet. Click &ldquo;Open Folder&rdquo; to work with local files.</div>
+          <div class="sidebar-items-list" id="sidebarProjectsList">
+            <!-- Project headers and chat lists will go here via JS -->
           </div>
         </div>
       </div>
@@ -63,55 +207,88 @@
       </div>
     </aside>
 
-    <!-- Main Workspace (Single Centered Flow, NO Sliding Canvas) -->
+    <!-- Main Workspace -->
     <main class="app-main">
-      <!-- Minimalist Topbar -->
       <header class="app-topbar">
         <div class="topbar-left">
           <button id="btnToggleSidebar" class="topbar-icon-btn" title="Toggle Sidebar">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line></svg>
           </button>
           <div class="topbar-session-info">
             <span class="topbar-title" id="topbarSessionTitle">New Chat</span>
             <div id="topbarFolderBadge" class="topbar-folder-pill" hidden>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
               <span id="topbarFolderName">project-folder</span>
-              <button id="btnUnlinkFolder" class="btn-unlink-folder" title="Disconnect folder from this chat">✕</button>
+              <button id="btnUnlinkFolder" class="btn-unlink-folder" title="Disconnect folder from this chat">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
           </div>
         </div>
 
         <div class="topbar-right">
-          <button id="topbarModelSelectorBtn" class="topbar-model-pill" title="Click to view model or change settings">
-            <span class="status-indicator-dot online"></span>
-            <span id="topbarModelName">OpenRouter Free</span>
-          </button>
+          <!-- Fast Engine Switcher (Free Pool vs Paid Frontier) -->
+          <div class="topbar-engine-switcher" id="topbarEngineSwitcher" role="group" aria-label="Engine Mode">
+            <button type="button" class="engine-switch-btn active" id="btnSwitchFreePool" title="Fast switch to Free AI Pool (Auto-switching across OpenRouter, Gemini, Groq)">
+              <span class="engine-dot free"></span>
+              <span>Auto Free</span>
+            </button>
+            <button type="button" class="engine-switch-btn" id="btnSwitchPaidEngine" title="Fast switch to Paid Frontier Engine (Direct OpenAI, Claude, DeepSeek)">
+              <span class="engine-dot paid"></span>
+              <span>Paid Frontier</span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <!-- Message Viewport -->
+      <!-- Dedicated "No Projects Yet" Empty State Screen -->
+      <div id="noProjectsScreen" class="no-projects-screen" style="display: none;">
+        <div class="no-projects-card">
+          <div class="no-projects-mascot-wrapper">
+            <div class="no-projects-halo"></div>
+            <img src="assets/frames/eyqa_far.png" alt="Eyqa Mascot" class="no-projects-mascot animated-mascot" id="noProjectsMascotImg" />
+          </div>
+          <h2 class="no-projects-title">No Projects Yet</h2>
+          <p class="no-projects-desc">
+            Eyqa organizes your conversations, local file workspaces, and AI models into projects. Create a project to start exploring.
+          </p>
+          <div class="no-projects-actions">
+            <button id="btnNoProjectsCreate" class="btn-primary" style="height: 36px; padding: 0 20px; font-size: 13px;">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+              <span>Create New Project</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
       <section class="chat-viewport" id="chatMessagesContainer">
-        <!-- Rendered by chat-view.js -->
       </section>
 
-      <!-- Minimal Bottom Prompt Dock (ChatGPT Style) -->
       <footer class="app-dock-section">
+        <!-- Floating Scroll to Bottom Island -->
+        <button id="btnScrollToBottom" class="btn-scroll-bottom" title="Scroll to latest messages" hidden>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          <span>New messages</span>
+        </button>
+
         <div class="antigravity-dock-card">
-          <!-- Active Folder or Attachment Pill in Dock -->
           <div id="dockMetaBar" class="dock-meta-bar" hidden>
             <div id="dockFolderPill" class="dock-badge-pill" hidden>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
               <span id="dockFolderName">Folder: ~/my-project</span>
-              <button id="btnDockUnlinkFolder" class="dock-pill-remove" title="Unlink folder">✕</button>
+              <button id="btnDockUnlinkFolder" class="dock-pill-remove" title="Unlink folder">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
             <div id="dockAttachmentPill" class="dock-badge-pill" hidden>
               <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
               <span id="dockAttachmentName">file.txt</span>
-              <button id="btnDockRemoveAttachment" class="dock-pill-remove" title="Remove attachment">✕</button>
+              <button id="btnDockRemoveAttachment" class="dock-pill-remove" title="Remove attachment">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+              </button>
             </div>
           </div>
 
-          <!-- Prompt Textarea -->
           <div class="dock-input-row">
             <textarea
               id="chatInputTextarea"
@@ -121,25 +298,26 @@
             ></textarea>
           </div>
 
-          <!-- Dock Action Buttons -->
           <div class="dock-pills-row">
             <div class="dock-pills-left">
-              <!-- Attach File -->
+              <button id="btnMentionContext" class="dock-action-pill" title="Mention a file from project context (@)">
+                <span style="font-family: monospace; font-weight: bold; font-size: 14px;">@</span>
+                <span>Context</span>
+              </button>
+
               <button id="btnAttachFile" class="dock-action-pill" title="Attach file from your computer">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m21.44 11.05-9.19 9.19a6 6 0 0 1-8.49-8.49l8.57-8.57A4 4 0 1 1 18 8.84l-8.59 8.57a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
                 <span>Attach</span>
               </button>
 
-              <!-- Web Search Toggle -->
               <button id="btnToggleWebSearch" class="dock-action-pill" title="Toggle live DuckDuckGo web search">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
                 <span>Search</span>
               </button>
 
-              <!-- Link Folder Toggle (When to work in a folder!) -->
-              <button id="btnLinkFolder" class="dock-action-pill" title="Link a project folder on your computer so Eyqa can read and create files in it">
+              <button id="btnLinkFolder" class="dock-action-pill" title="Scope Context: temporarily scope this conversation to a specific subfolder or file">
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
-                <span id="btnLinkFolderLabel">Folder</span>
+                <span id="btnLinkFolderLabel">Scope Context</span>
               </button>
             </div>
 
@@ -158,10 +336,29 @@
         </div>
       </footer>
     </main>
+
+    <!-- Contextual Right-Hand Inspector Drawer -->
+    <aside id="inspectorDrawer" class="inspector-drawer">
+      <div class="inspector-header">
+        <div class="inspector-title">
+          <span id="inspectorFilePath">filename.txt</span>
+          <span class="snapshot-badge" id="inspectorSnapshotBadge">v1</span>
+        </div>
+        <button id="closeInspectorBtn" class="topbar-icon-btn" title="Close Inspector">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <div class="inspector-body">
+        <div id="inspectorFileViewer" class="inspector-file-viewer"></div>
+        <div id="inspectorSnapshotTimeline" class="inspector-timeline">
+          <!-- Timeline items inserted dynamically -->
+        </div>
+      </div>
+    </aside>
   </div>
 
-  <!-- Single Clean Settings Modal (No Overlapping Modals) -->
-  <div class="settings-modal-backdrop" id="settingsModal"></div>
+  <!-- Dedicated Settings Workspace View (Full Desktop Workspace replacing modal popup) -->
+  <div class="settings-workspace-view" id="settingsModal" hidden></div>
 
   <script type="module" src="js/app.js"></script>
 </body>

@@ -2,79 +2,85 @@
 
 <div align="center">
   <img src="src/renderer/assets/icon.svg" width="96" height="96" alt="Eyqa Brandmark" />
-  <h3>The Fast, Snappy, Everyday AI Coworker for Everyone</h3>
+  <h3>The Fast, Snappy, Everyday AI Coworker with Antigravity-Grade Agentic Superpowers</h3>
   <p><strong>Linux · macOS · Windows · Web</strong></p>
-  <p><em>Inspired by and adapting the multi-provider resiliency of Free Claude Code into a gorgeous native desktop experience.</em></p>
+  <p><em>Obsidian monochromatic dark design · Free Multi-Provider AI Pool · Antigravity &amp; Manus Process Folding · Full Agentic Tooling</em></p>
 </div>
 
 ---
 
 ## 🌟 What is Eyqa?
 
-**Eyqa** is a native, ultra-responsive desktop application designed for **everyday people**—students, professionals, writers, researchers, creators, and founders—not just programmers.
+**Eyqa** is an ultra-responsive native desktop workspace engineered for everyday creators, engineers, researchers, and builders. It bridges the gap between everyday simplicity and publication-grade agentic rigor.
 
-While command-line tools can be intimidating, Eyqa delivers a ChatGPT-level or Claude Coworker-grade desktop experience with a major superpower: **Native Multi-Agent Intelligence with 100% Free API Tiers and Instant Web Grounding**.
+Inspired by Antigravity and Manus, Eyqa delivers a unified process timeline with automatic folding, human-in-the-loop decision cards, interactive widgets, native Chromium browser grounding, terminal execution, precision file surgery, and resilient multi-provider free tiers.
 
-### ⚡ Key Capabilities
+---
 
-1. **⚡ Fast & Snappy Native Desktop Experience**
-   - Built to run seamlessly on **Linux, macOS, and Windows** with instant startup and smooth 60fps animations.
-   - Dual-mode: Run as a standalone native app (`npm start`) or access it from your browser/mobile device (`npm run web`).
+## ⚡ Key Capabilities
 
-2. **🎁 5 Built-in Free API Tiers (Zero Cost to Start)**
-   - **Google Gemini Free Tier**: 15 requests/minute & 1,000,000 tokens per minute (Gemini 2.0 Flash) from Google AI Studio.
-   - **Groq Cloud Free Tier**: 500+ tokens/second lightning LPU inference (Llama 3.3 70B, Mixtral).
-   - **NVIDIA NIM Free Tier**: 1,000 free tokens/credits per account (Nemotron 70B, Llama 3.3 70B).
-   - **OpenRouter Free Pool**: Free model pool including DeepSeek R1, Llama 3.3, and Gemma.
-   - **Ollama Local Offline**: 100% private, runs directly on your computer with zero internet required.
-   - *Also supports paid keys: Anthropic Claude 3.7 Sonnet, OpenAI GPT-4o, and DeepSeek Official.*
+### 1. ▾ Manus & Antigravity Process Auto-Folding
+- **Unified Process Timeline**: Reasoning steps, tool executions, and interactive questions fold into a sleek summary header (`▸ PROCESS & ACTIONS N actions • Decided: ... [Completed]`).
+- **Prompt & Response Prominence**: When the final answer streams, the process automatically folds so the clean, unboxed markdown response is displayed front-and-center.
+- **On-Demand Inspection**: Click the folded header at any time to inspect full reasoning, diffs, screenshots, and confirmed choices.
 
-3. **🛡️ Resilient Failover & Automatic Fallbacks (The FCC Engine)**
-   - If your primary free model hits a daily quota or rate limit (429), Eyqa **automatically switches to your secondary configured model** mid-conversation without interrupting your turn!
+### 2. 🎛️ Interactive Human-in-the-Loop Decision Cards (`ask_question`)
+- **Interactive Prompts**: The assistant pauses execution to request structured user feedback (single choice, multi-select, or custom text specification).
+- **Deselect & Unchoose**: Full toggle ergonomics—click an active option to unchoose/deselect.
+- **Clean Note Preservation**: Custom notes and specifications are never overwritten or corrupted.
+- **Immediate State Transition**: Compresses cleanly into a verified decision step upon submission.
 
-4. **🌐 Instant DuckDuckGo Web Search & URL Reader**
-   - Zero search API keys required.
-   - Live real-time grounding: Eyqa searches the web, summarizes news, fact-checks claims, and reads target URLs automatically.
+### 3. 🛠️ Antigravity-Grade Agentic Tools
+- **Terminal Execution & Daemons (`run_command`, `manage_task`)**: Execute shell commands, launch long-running watchers/servers, and feed stdin interactively.
+- **Precision File Surgery (`replace_file_content`, `view_file`)**: Surgical block replacements with unified diff previews and automated revertible snapshot versioning (`.eyqa/snapshots/`).
+- **Native Chromium Browser Engine (`read_browser_page`, `browser_navigate`, `browser_action`)**: Built on Electron's Chromium runtime to navigate SPAs, execute JavaScript, fill forms, and capture screenshots.
+- **Image Generation (`generate_image`)**: Instant high-resolution image creation using 100% free Pollinations.ai (Flux / SDXL) with fallback to OpenAI DALL-E 3.
+- **Subagent Swarms (`invoke_subagent`)**: Delegate deep analytical or testing work to concurrent background subagents.
 
-5. **📄 The Coworker Canvas (Side-by-Side Preview)**
-   - When Eyqa drafts an executive proposal, report, email, guide, or script, it pops up in the **Coworker Canvas**.
-   - Edit, copy, or **1-click save directly to your local workspace folder**.
+### 4. 🎁 1.45 Billion Free Tokens/mo Multi-Provider Engine
+- **FCC Auto Pool Routing**: Integrated Free Claude Code background proxy on port 8082 with automatic failover across 5 free providers:
+  - **Google Gemini 2.0 Flash**: 1 Billion free tokens/mo (15 RPM free tier via Google AI Studio).
+  - **Groq Cloud (Llama 3.3 70B)**: 300 Million free tokens/mo (14.4k requests/day at 500+ tokens/sec).
+  - **OpenRouter Free Pool**: 100 Million free tokens/mo (DeepSeek R1, Llama 3.3, Gemma 2).
+  - **NVIDIA NIM**: 50 Million free tokens (Nemotron 70B / 120B credits).
+  - **Qwen Cloud**: 1 Million tokens.
+- **Fast Engine Switcher**: 1-click toggle between the **Free Auto Pool** and **Paid Frontier Engine** (Claude 3.7 Sonnet, GPT-4o, DeepSeek V3).
 
-6. **📁 Local Workspace Sandboxing & Privacy**
-   - Choose any folder on your laptop (e.g. `Documents/Projects` or `Downloads`).
-   - Eyqa can list, read, and write files safely within that folder without privacy risks.
+### 5. 📁 Workspaces & Project Memory
+- **Project $\rightarrow$ Multi-Thread Hierarchy**: Organize threads under dedicated projects with folder binding.
+- **Shared Project Memory (`.eyqa/memory.json`)**: Persistent project memory and changelog auto-injected into turns so context is preserved across threads.
+- **Contextual Right-Hand Inspector Drawer**: Slide-in diff viewer and snapshot timeline with 1-click version rollback.
+
+### 6. 🖤 Obsidian Monochromatic Design System
+- Pure Apple / Linear / Vercel grade dark mode palette (`#0D0D0D`, `#121212`, `#181818`, white accents, zero AI slop).
+- Fluid animations, live SVG avatars, and interactive Generative UI sandboxes with live iframe previews.
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Requirements
+### Prerequisites
 - Node.js (v18+)
+- Python 3.10+ (for embedded FCC free-tier router)
 
-### 2. Launch Eyqa Desktop
+### Installation & Launch
 ```bash
-# Navigate to the Eyqa directory
-cd "/home/hassan/Desktop1/2nd brain/eyqa"
+# Clone the repository
+git clone https://github.com/local-over/Eyqa.git
+cd Eyqa
+
+# Install dependencies
+npm install
 
 # Launch the native desktop application
 npm start
 ```
 
-### 3. Or Launch in Browser Mode (Accessible from Any Device)
+### Or Run in Web / Headless Mode
 ```bash
 npm run web
-# Open http://localhost:4321 in Chrome, Firefox, Safari, or on your phone
+# Access the web UI at http://localhost:4321
 ```
-
----
-
-## 🔑 How to Setup Free AI Keys in 60 Seconds
-
-1. Open Eyqa and click the **Settings Gear (⚙️)** in the bottom left or press `Ctrl+,`.
-2. Select the **"Free AI Models"** tab:
-   - **Google Gemini (Recommended)**: Click the direct link to [Google AI Studio](https://aistudio.google.com/app/apikey), click *Create API key*, paste it, and click **Test Connection**.
-   - **Groq Cloud**: Click the link to [Groq Console](https://console.groq.com/keys), create a free key, paste it, and test.
-3. Click **Save & Close**. You are ready to chat with infinite intelligence for free!
 
 ---
 
@@ -82,39 +88,40 @@ npm run web
 
 | Shortcut | Action |
 | :--- | :--- |
-| `Ctrl + N` / `Cmd + N` | Start a fresh conversation |
-| `Ctrl + ,` / `Cmd + ,` | Open Settings & AI Engines modal |
-| `Enter` | Send message |
-| `Shift + Enter` | Insert new line |
-| `Escape` | Close active modals & canvas |
+| `Ctrl + N` / `Cmd + N` | Start a fresh chat thread in active project |
+| `Ctrl + ,` / `Cmd + ,` | Open Settings & Engine Capacity Dashboard |
+| `Enter` | Send message / prompt |
+| `Shift + Enter` | Insert newline |
+| `Escape` | Close active modals & Contextual Inspector Drawer |
 
 ---
 
-## 📂 Project Architecture
+## 📂 Project Structure
 
 ```
 eyqa/
-├── package.json               # Desktop scripts & packaging config
-├── README.md                  # Complete user and architectural documentation
+├── package.json               # Desktop scripts, build configuration & dependencies
+├── README.md                  # Comprehensive user guide & architecture specs
 ├── src/
-│   ├── main/                  # Native backend & orchestrator
-│   │   ├── index.cjs          # Electron lifecycle & IPC handlers
-│   │   ├── preload.cjs        # Secure context bridge
+│   ├── main/                  # Electron Main Process & Native Node Services
+│   │   ├── index.cjs          # Lifecycle, window management & IPC channels
+│   │   ├── preload.cjs        # Secure ContextBridge API exposure
+│   │   ├── fcc-service.cjs    # Embedded FCC proxy service manager
 │   │   ├── agent/
-│   │   │   ├── orchestrator.cjs # Multi-agent loop & tool runner
-│   │   │   ├── prompts.cjs    # Personas (Coworker, Web, Docs, Coder)
-│   │   │   ├── providers/     # Gemini, OpenAI-compatible, Anthropic & Fallback Engine
-│   │   │   └── tools/         # DuckDuckGo search, Web fetch, Workspace files
-│   │   └── storage/           # Settings & Chat sessions persistence
-│   ├── renderer/              # High-speed modern web UI
-│   │   ├── index.html         # Application shell
-│   │   ├── css/               # Eyqa Onyx Design System (app, markdown, canvas)
-│   │   └── js/                # App controller, Chat, Canvas, Settings, API bridge
-│   └── server.cjs             # Standalone HTTP/SSE server for browser mode
+│   │   │   ├── orchestrator.cjs # Multi-step agentic loop, tool runner & decision coordinator
+│   │   │   ├── prompts.cjs    # Personas & system prompt builders
+│   │   │   ├── providers/     # Provider manager, fallback router & client wrappers
+│   │   │   └── tools/         # Browser, terminal, workspace surgery, images & web fetch
+│   │   └── storage/           # SQLite session store, config store & snapshot manager
+│   ├── renderer/              # High-performance desktop UI
+│   │   ├── index.html         # Application shell & modular modals
+│   │   ├── css/               # Obsidian Design System (app, markdown, widgets)
+│   │   ├── assets/            # Crisp SVG vectors & living mascot frames
+│   │   └── js/                # ChatView, App Controller, SettingsView, API Bridge, Icons
+│   └── fcc/                   # Embedded Python Free-Tier Proxy Service
 ```
 
 ---
 
-## ⚖️ License & Attribution
-- Forked & adapted from concepts in [Free Claude Code](https://github.com/alishahryar1/free-claude-code).
-- Released under **AGPL-3.0**.
+## ⚖️ License
+Released under the **AGPL-3.0** License.

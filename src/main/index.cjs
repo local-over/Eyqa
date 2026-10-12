@@ -16,11 +16,23 @@ const { fetchWebpage } = require('./agent/tools/web-fetch.cjs');
 const {
   listWorkspace,
   readWorkspaceFile,
-  writeWorkspaceFile
+  writeWorkspaceFile,
+  replaceFileContent,
+  viewFile,
+  getSnapshots,
+  revertSnapshot,
+  getFileContent,
+  getProjectMemory,
+  saveProjectMemory,
+  getProjectChangelog
 } = require('./agent/tools/workspace.cjs');
+const { runCommand, manageTask, cleanupAllTasks } = require('./agent/tools/terminal.cjs');
+const { browserNavigate, browserAction, readBrowserPage, closeBrowser } = require('./agent/tools/browser.cjs');
+const { generateImage } = require('./agent/tools/image-gen.cjs');
+const { fccService } = require('./fcc-service.cjs');
 
 let mainWindow = null;
-let currentTurnAbortController = null;
+const activeTurnControllers = new Map();
 
 // Initialize Storage and Engines
 const configStore = new ConfigStore();
@@ -47,6 +59,12 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
 
+  mainWindow.webContents.on('will-navigate', (event, url) => {
+    if (!url.endsWith('index.html')) {
+      event.preventDefault();
+    }
+  });
+
   mainWindow.once('ready-to-show', () => {
     mainWindow.show();
   });
@@ -60,6 +78,13 @@ app.whenReady().then(() => {
   setupIpcHandlers();
   createWindow();
 
+  // Automatically start embedded FCC background library in background
+  fccService.start().then(res => {
+    console.log('[Main] Embedded FCC background service initialized:', res.status, 'Port:', res.port);
+  }).catch(err => {
+    console.warn('[Main] FCC background service warning:', err.message);
+  });
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
@@ -72,6 +97,35 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+app.on('will-quit', async () => {
+  cleanupAllTasks();
+  closeBrowser();
+  try {
+    await fccService.stop();
+  } catch (_) {}
+});
+
+process.on('SIGINT', async () => {
+  try {
+    await fccService.stop();
+  } catch (_) {}
+  process.exit(0);
+});
+
+function getWorkspaceRootForProject(projectId) {
+  // If projectId is provided, look it up in session store to get its folder.
+  if (projectId) {
+    const projects = sessionStore.listProjects();
+    const proj = projects.find(p => p.id === projectId);
+    if (proj && proj.folderPath) {
+      return proj.folderPath;
+    }
+    // Pure chat without folder should not bleed into unrelated workspace directory
+    return null;
+  }
+  return configStore.get().workspacePath || null;
+}
 
 function setupIpcHandlers() {
   // Config & Settings
@@ -91,6 +145,24 @@ function setupIpcHandlers() {
     return await providerManager.testProvider(id, customConfig);
   });
 
+  
+  // Projects
+  ipcMain.handle('store:listProjects', () => {
+    return sessionStore.listProjects();
+  });
+
+  ipcMain.handle('store:createProject', (_, name, folderPath, folderName, extraProps) => {
+    return sessionStore.createProject(name, folderPath, folderName, extraProps);
+  });
+
+  ipcMain.handle('store:updateProject', (_, id, updates) => {
+    return sessionStore.updateProject(id, updates);
+  });
+
+  ipcMain.handle('store:deleteProject', (_, id) => {
+    return sessionStore.deleteProject(id);
+  });
+
   // Sessions
   ipcMain.handle('store:getSessions', () => {
     return sessionStore.listSessions();
@@ -100,8 +172,8 @@ function setupIpcHandlers() {
     return sessionStore.getSession(id);
   });
 
-  ipcMain.handle('store:createSession', (_, title, mode, folder) => {
-    return sessionStore.createSession(title, mode, folder);
+  ipcMain.handle('store:createSession', (_, title, projectId) => {
+    return sessionStore.createSession(title, projectId);
   });
 
   ipcMain.handle('store:saveSession', (_, session) => {
@@ -174,6 +246,110 @@ function setupIpcHandlers() {
     return writeWorkspaceFile(ws, relPath, content);
   });
 
+  ipcMain.handle('tools:replaceFileContent', (_, relPath, oldContent, newContent, startLine, endLine, allowMultiple) => {
+    const ws = configStore.get().workspacePath;
+    return replaceFileContent(ws, {
+      TargetFile: relPath,
+      TargetContent: oldContent,
+      ReplacementContent: newContent,
+      StartLine: startLine,
+      EndLine: endLine,
+      AllowMultiple: allowMultiple
+    });
+  });
+
+  ipcMain.handle('tools:viewFile', (_, relPath, startLine, endLine, offset) => {
+    const ws = configStore.get().workspacePath;
+    return viewFile(ws, {
+      AbsolutePath: relPath,
+      StartLine: startLine,
+      EndLine: endLine,
+      ContentOffset: offset
+    });
+  });
+
+  // Terminal Execution & Task Management
+  ipcMain.handle('terminal:runCommand', async (_, payload) => {
+    const ws = payload?.projectId ? getWorkspaceRootForProject(payload.projectId) : configStore.get().workspacePath;
+    return await runCommand({
+      CommandLine: payload.CommandLine,
+      Cwd: payload.Cwd,
+      IsDaemon: payload.IsDaemon,
+      WaitMsBeforeAsync: payload.WaitMsBeforeAsync,
+      workspaceRoot: ws
+    });
+  });
+
+  ipcMain.handle('terminal:manageTask', async (_, payload) => {
+    return await manageTask({
+      Action: payload.Action,
+      TaskId: payload.TaskId,
+      Input: payload.Input
+    });
+  });
+
+  // Browser Engine IPC
+  ipcMain.handle('browser:navigate', async (_, url, timeoutMs) => {
+    return await browserNavigate({ url, timeoutMs });
+  });
+
+  ipcMain.handle('browser:action', async (_, payload) => {
+    return await browserAction(payload);
+  });
+
+  ipcMain.handle('browser:readPage', async (_, payload) => {
+    return await readBrowserPage(payload);
+  });
+
+  // Image Generation IPC
+  ipcMain.handle('image:generate', async (_, payload) => {
+    const ws = payload?.projectId ? getWorkspaceRootForProject(payload.projectId) : configStore.get().workspacePath;
+    return await generateImage({
+      prompt: payload.prompt,
+      imageName: payload.imageName,
+      size: payload.size,
+      style: payload.style,
+      configStore,
+      workspacePath: ws
+    });
+  });
+
+  // Question / Decision Human-in-the-loop IPC
+  ipcMain.handle('agent:submitQuestionAnswer', (_, questionId, answers) => {
+    return orchestrator.resolveQuestion(questionId, answers);
+  });
+
+  // Snapshot Management
+  ipcMain.handle('workspace:getSnapshots', (_, projectId, fileRelPath) => {
+    const ws = getWorkspaceRootForProject(projectId);
+    return getSnapshots(ws, fileRelPath);
+  });
+
+  ipcMain.handle('workspace:revertSnapshot', (_, snapshotId, projectId) => {
+    const ws = getWorkspaceRootForProject(projectId);
+    return revertSnapshot(ws, snapshotId);
+  });
+
+  ipcMain.handle('workspace:getFileContent', (_, projectId, fileRelPath) => {
+    const ws = getWorkspaceRootForProject(projectId);
+    return getFileContent(ws, fileRelPath);
+  });
+
+  ipcMain.handle('workspace:getMemory', (_, projectId) => {
+    const ws = getWorkspaceRootForProject(projectId);
+    return getProjectMemory(ws);
+  });
+
+  ipcMain.handle('workspace:saveMemory', (_, projectId, memoryData) => {
+    const ws = getWorkspaceRootForProject(projectId);
+    return saveProjectMemory(ws, memoryData);
+  });
+
+  ipcMain.handle('workspace:getChangelog', (_, projectId) => {
+    const ws = getWorkspaceRootForProject(projectId);
+    return getProjectChangelog(ws);
+  });
+
   // Direct Web Tools
   ipcMain.handle('tools:searchWeb', async (_, query, maxResults) => {
     return await searchWeb(query, maxResults);
@@ -185,10 +361,14 @@ function setupIpcHandlers() {
 
   // Agent Streaming Execution
   ipcMain.handle('agent:startTurn', async (event, payload) => {
-    if (currentTurnAbortController) {
-      currentTurnAbortController.abort();
+    const turnKey = payload.sessionId || 'default';
+    if (activeTurnControllers.has(turnKey)) {
+      try {
+        activeTurnControllers.get(turnKey).abort();
+      } catch (_) {}
     }
-    currentTurnAbortController = new AbortController();
+    const ac = new AbortController();
+    activeTurnControllers.set(turnKey, ac);
 
     const sender = event.sender;
 
@@ -202,22 +382,26 @@ function setupIpcHandlers() {
         providerId: payload.providerId,
         enableTools: payload.enableTools !== false,
         forceWebSearch: payload.forceWebSearch === true,
+        customPrompt: payload.customPrompt,
         onToken: (tok) => {
-          sender.send('agent:stream-token', tok);
+          if (!ac.signal.aborted) sender.send('agent:stream-token', tok);
         },
         onThought: (th) => {
-          sender.send('agent:stream-thought', th);
+          if (!ac.signal.aborted) sender.send('agent:stream-thought', th);
         },
         onToolStart: (toolInfo) => {
-          sender.send('agent:tool-start', toolInfo);
+          if (!ac.signal.aborted) sender.send('agent:tool-start', toolInfo);
         },
         onToolResult: (resInfo) => {
-          sender.send('agent:tool-result', resInfo);
+          if (!ac.signal.aborted) sender.send('agent:tool-result', resInfo);
         },
         onFallback: (fbInfo) => {
-          sender.send('agent:fallback', fbInfo);
+          if (!ac.signal.aborted) sender.send('agent:fallback', fbInfo);
         },
-        signal: currentTurnAbortController.signal
+        onAskQuestion: (qData) => {
+          if (!ac.signal.aborted) sender.send('agent:ask-question', qData);
+        },
+        signal: ac.signal
       });
 
       return {
@@ -225,7 +409,7 @@ function setupIpcHandlers() {
         result
       };
     } catch (err) {
-      if (currentTurnAbortController.signal.aborted) {
+      if (ac.signal.aborted) {
         return {
           success: false,
           aborted: true,
@@ -237,18 +421,34 @@ function setupIpcHandlers() {
         error: err.message
       };
     } finally {
-      currentTurnAbortController = null;
+      if (activeTurnControllers.get(turnKey) === ac) {
+        activeTurnControllers.delete(turnKey);
+      }
     }
   });
 
-  ipcMain.handle('agent:stopTurn', () => {
-    if (currentTurnAbortController) {
-      currentTurnAbortController.abort();
-      currentTurnAbortController = null;
-      return true;
+  ipcMain.handle('agent:stopTurn', (_, sessionId) => {
+    let stopped = false;
+    if (sessionId && activeTurnControllers.has(sessionId)) {
+      activeTurnControllers.get(sessionId).abort();
+      activeTurnControllers.delete(sessionId);
+      stopped = true;
+    } else {
+      for (const [, controller] of activeTurnControllers.entries()) {
+        controller.abort();
+        stopped = true;
+      }
+      activeTurnControllers.clear();
     }
-    return false;
+    return stopped;
   });
+
+  // Embedded FCC Background Service IPC
+  ipcMain.handle('fcc:getStatus', () => fccService.getStatus());
+  ipcMain.handle('fcc:getLogs', () => fccService.getLogs());
+  ipcMain.handle('fcc:restart', async () => await fccService.restart());
+  ipcMain.handle('fcc:stop', async () => await fccService.stop());
+  ipcMain.handle('fcc:start', async () => await fccService.start());
 
   // Window Controls
   ipcMain.handle('window:minimize', () => {

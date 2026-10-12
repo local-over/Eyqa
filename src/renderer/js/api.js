@@ -1,7 +1,7 @@
 /**
  * Eyqa Universal Client API
- * Seamlessly interfaces with Electron native IPC when running as a desktop app,
- * or standard REST/SSE endpoints when running in a web browser.
+ * Seamlessly interfaces with Electron native IPC via window.eyqaApi
+ * when running as a desktop app, or REST/SSE endpoints in browser mode.
  */
 
 const isElectron = Boolean(window.eyqaApi);
@@ -29,10 +29,13 @@ export const api = {
   async updateProvider(id, data) {
     if (isElectron) return await window.eyqaApi.updateProvider(id, data);
     const settings = await this.getSettings();
+    if (!settings.providers) settings.providers = {};
     if (settings.providers[id]) {
       settings.providers[id] = { ...settings.providers[id], ...data };
-      return await this.saveSettings(settings);
+    } else {
+      settings.providers[id] = data;
     }
+    return await this.saveSettings(settings);
   },
 
   async testProvider(id, customConfig = null) {
@@ -45,7 +48,40 @@ export const api = {
     return await res.json();
   },
 
-  // Sessions
+  // Projects
+  async listProjects() {
+    if (isElectron) return await window.eyqaApi.listProjects();
+    const res = await fetch('/api/projects');
+    return await res.json();
+  },
+
+  async createProject(name, folderPath = null, folderName = null, extraProps = {}) {
+    if (isElectron) return await window.eyqaApi.createProject(name, folderPath, folderName, extraProps);
+    const res = await fetch('/api/projects', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, folderPath, folderName, ...extraProps })
+    });
+    return await res.json();
+  },
+
+  async updateProject(id, updates) {
+    if (isElectron) return await window.eyqaApi.updateProject(id, updates);
+    const res = await fetch(`/api/projects/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates)
+    });
+    return await res.json();
+  },
+
+  async deleteProject(id) {
+    if (isElectron) return await window.eyqaApi.deleteProject(id);
+    const res = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+    return await res.json();
+  },
+
+  // Sessions (Chats)
   async getSessions() {
     if (isElectron) return await window.eyqaApi.getSessions();
     const res = await fetch('/api/sessions');
@@ -58,12 +94,12 @@ export const api = {
     return await res.json();
   },
 
-  async createSession(title, mode = 'chat', folder = null) {
-    if (isElectron) return await window.eyqaApi.createSession(title, mode, folder);
+  async createSession(title, projectId = null) {
+    if (isElectron) return await window.eyqaApi.createSession(title, projectId);
     const res = await fetch('/api/sessions', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title, mode, folder })
+      body: JSON.stringify({ title, projectId })
     });
     return await res.json();
   },
@@ -110,6 +146,44 @@ export const api = {
     return { error: 'Workspace file writing requires native desktop app' };
   },
 
+  // Snapshot Management
+  async getSnapshots(projectId, fileRelPath) {
+    if (isElectron) return await window.eyqaApi.getSnapshots(projectId, fileRelPath);
+    const res = await fetch(`/api/workspace/snapshots?projectId=${projectId}&fileRelPath=${encodeURIComponent(fileRelPath)}`);
+    return await res.json();
+  },
+
+  async revertSnapshot(snapshotId, projectId) {
+    if (isElectron) return await window.eyqaApi.revertSnapshot(snapshotId, projectId);
+    const res = await fetch(`/api/workspace/snapshots/${snapshotId}/revert`, { 
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectId })
+    });
+    return await res.json();
+  },
+
+  async getFileContent(projectId, fileRelPath) {
+    if (isElectron) return await window.eyqaApi.getFileContent(projectId, fileRelPath);
+    const res = await fetch(`/api/workspace/file?projectId=${projectId}&fileRelPath=${encodeURIComponent(fileRelPath)}`);
+    return await res.json();
+  },
+
+  async getProjectMemory(projectId) {
+    if (isElectron && window.eyqaApi.getProjectMemory) return await window.eyqaApi.getProjectMemory(projectId);
+    return { notes: '', architecture: '' };
+  },
+
+  async saveProjectMemory(projectId, memoryData) {
+    if (isElectron && window.eyqaApi.saveProjectMemory) return await window.eyqaApi.saveProjectMemory(projectId, memoryData);
+    return { success: false };
+  },
+
+  async getProjectChangelog(projectId) {
+    if (isElectron && window.eyqaApi.getProjectChangelog) return await window.eyqaApi.getProjectChangelog(projectId);
+    return [];
+  },
+
   // Tools
   async searchWeb(query, maxResults = 5) {
     if (isElectron) return await window.eyqaApi.searchWeb(query, maxResults);
@@ -121,6 +195,73 @@ export const api = {
     return { error: 'Direct fetch API' };
   },
 
+  async replaceFileContent(relPath, oldContent, newContent, startLine, endLine, allowMultiple) {
+    if (isElectron && window.eyqaApi.replaceFileContent) {
+      return await window.eyqaApi.replaceFileContent(relPath, oldContent, newContent, startLine, endLine, allowMultiple);
+    }
+    return { error: 'Precision file replacement requires native desktop app' };
+  },
+
+  async viewFile(relPath, startLine, endLine, offset) {
+    if (isElectron && window.eyqaApi.viewFile) {
+      return await window.eyqaApi.viewFile(relPath, startLine, endLine, offset);
+    }
+    return { error: 'Sliced file viewer requires native desktop app' };
+  },
+
+  // Terminal Execution
+  async runCommand(options) {
+    if (isElectron && window.eyqaApi.runCommand) {
+      return await window.eyqaApi.runCommand(options);
+    }
+    return { error: 'Terminal execution requires native desktop app' };
+  },
+
+  async manageTask(options) {
+    if (isElectron && window.eyqaApi.manageTask) {
+      return await window.eyqaApi.manageTask(options);
+    }
+    return { error: 'Task management requires native desktop app' };
+  },
+
+  // Browser Engine
+  async browserNavigate(url, timeoutMs) {
+    if (isElectron && window.eyqaApi.browserNavigate) {
+      return await window.eyqaApi.browserNavigate(url, timeoutMs);
+    }
+    return { error: 'Browser navigation requires native desktop app' };
+  },
+
+  async browserAction(payload) {
+    if (isElectron && window.eyqaApi.browserAction) {
+      return await window.eyqaApi.browserAction(payload);
+    }
+    return { error: 'Browser actions require native desktop app' };
+  },
+
+  async readBrowserPage(payload) {
+    if (isElectron && window.eyqaApi.readBrowserPage) {
+      return await window.eyqaApi.readBrowserPage(payload);
+    }
+    return { error: 'Browser reading requires native desktop app' };
+  },
+
+  // Image Generation
+  async generateImage(payload) {
+    if (isElectron && window.eyqaApi.generateImage) {
+      return await window.eyqaApi.generateImage(payload);
+    }
+    return { error: 'Image generation requires native desktop app' };
+  },
+
+  // Interactive Decisions
+  async submitQuestionAnswer(questionId, answers) {
+    if (isElectron && window.eyqaApi.submitQuestionAnswer) {
+      return await window.eyqaApi.submitQuestionAnswer(questionId, answers);
+    }
+    return { success: false };
+  },
+
   // Turn Execution
   async startTurn(payload, handlers = {}) {
     if (isElectron) {
@@ -130,6 +271,7 @@ export const api = {
       if (handlers.onToolStart) unsubs.push(window.eyqaApi.onToolStart(handlers.onToolStart));
       if (handlers.onToolResult) unsubs.push(window.eyqaApi.onToolResult(handlers.onToolResult));
       if (handlers.onFallback) unsubs.push(window.eyqaApi.onFallback(handlers.onFallback));
+      if (handlers.onAskQuestion) unsubs.push(window.eyqaApi.onAskQuestion(handlers.onAskQuestion));
 
       try {
         const res = await window.eyqaApi.startTurn(payload);
@@ -190,5 +332,31 @@ export const api = {
   async stopTurn() {
     if (isElectron) return await window.eyqaApi.stopTurn();
     return false;
+  },
+
+  // Embedded FCC Background Service
+  async getFCCStatus() {
+    if (isElectron) return await window.eyqaApi.getFCCStatus();
+    return { running: false, status: 'stopped', port: 8082, isEmbedded: true };
+  },
+
+  async getFCCLogs() {
+    if (isElectron) return await window.eyqaApi.getFCCLogs();
+    return [];
+  },
+
+  async restartFCCService() {
+    if (isElectron) return await window.eyqaApi.restartFCCService();
+    return { success: false };
+  },
+
+  async stopFCCService() {
+    if (isElectron) return await window.eyqaApi.stopFCCService();
+    return { success: false };
+  },
+
+  async startFCCService() {
+    if (isElectron) return await window.eyqaApi.startFCCService();
+    return { success: false };
   }
 };

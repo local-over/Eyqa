@@ -11,17 +11,19 @@ async function streamAnthropic({
   messages,
   systemPrompt,
   enableTools = true,
+  customTools = null,
   onToken,
   onThought,
   onToolCall,
   signal
 }) {
-  const apiKey = (provider.apiKey || '').trim();
+  const apiKey = (provider.apiKey || '').trim() || (provider.id === 'fcc_proxy' ? 'fcc' : '');
   if (!apiKey) {
     throw new Error('Anthropic API key is missing. Add your key in Settings.');
   }
 
-  const url = 'https://api.anthropic.com/v1/messages';
+  const baseUrl = (provider.baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+  const url = `${baseUrl}/messages`;
   const formattedMessages = [];
 
   for (const m of messages) {
@@ -75,7 +77,15 @@ async function streamAnthropic({
   }
 
   if (enableTools) {
-    payload.tools = ANTHROPIC_TOOL_DEFINITIONS;
+    if (customTools && Array.isArray(customTools)) {
+      payload.tools = customTools.map(tool => ({
+        name: tool.function.name,
+        description: tool.function.description,
+        input_schema: tool.function.parameters
+      }));
+    } else {
+      payload.tools = ANTHROPIC_TOOL_DEFINITIONS;
+    }
   }
 
   const response = await fetch(url, {
@@ -110,50 +120,56 @@ async function streamAnthropic({
   let currentBlockType = null;
   let currentBlockIndex = null;
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || !trimmed.startsWith('data: ')) continue;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || !trimmed.startsWith('data: ')) continue;
 
-      const jsonStr = trimmed.slice(6);
-      try {
-        const event = JSON.parse(jsonStr);
+        const jsonStr = trimmed.slice(6);
+        try {
+          const event = JSON.parse(jsonStr);
 
-        if (event.type === 'content_block_start') {
-          currentBlockIndex = event.index;
-          currentBlockType = event.content_block?.type;
-          if (currentBlockType === 'tool_use') {
-            toolCallsMap[currentBlockIndex] = {
-              id: event.content_block.id,
-              name: event.content_block.name,
-              rawInput: ''
-            };
-          }
-        } else if (event.type === 'content_block_delta') {
-          const delta = event.delta;
-          if (delta.type === 'text_delta') {
-            fullContent += delta.text;
-            if (onToken) onToken(delta.text);
-          } else if (delta.type === 'thinking_delta') {
-            fullThought += delta.thinking;
-            if (onThought) onThought(delta.thinking);
-          } else if (delta.type === 'input_json_delta') {
-            if (toolCallsMap[event.index]) {
-              toolCallsMap[event.index].rawInput += delta.partial_json;
+          if (event.type === 'content_block_start') {
+            currentBlockIndex = event.index;
+            currentBlockType = event.content_block?.type;
+            if (currentBlockType === 'tool_use') {
+              toolCallsMap[currentBlockIndex] = {
+                id: event.content_block.id,
+                name: event.content_block.name,
+                rawInput: ''
+              };
+            }
+          } else if (event.type === 'content_block_delta') {
+            const delta = event.delta;
+            if (delta.type === 'text_delta') {
+              fullContent += delta.text;
+              if (onToken) onToken(delta.text);
+            } else if (delta.type === 'thinking_delta') {
+              fullThought += delta.thinking;
+              if (onThought) onThought(delta.thinking);
+            } else if (delta.type === 'input_json_delta') {
+              if (toolCallsMap[event.index]) {
+                toolCallsMap[event.index].rawInput += delta.partial_json;
+              }
             }
           }
+        } catch {
+          // ignore
         }
-      } catch {
-        // ignore
       }
     }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch (_) {}
   }
 
   const completedToolCalls = Object.values(toolCallsMap).map(tc => {
@@ -189,7 +205,8 @@ async function testAnthropic(provider) {
     };
   }
 
-  const url = 'https://api.anthropic.com/v1/messages';
+  const baseUrl = (provider.baseUrl || 'https://api.anthropic.com/v1').replace(/\/+$/, '');
+  const url = `${baseUrl}/messages`;
   const payload = {
     model: provider.model || 'claude-3-5-haiku-20241022',
     max_tokens: 10,

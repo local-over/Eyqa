@@ -95,66 +95,72 @@ async function streamOpenAICompatible({
   let fullContent = '';
   let fullThought = '';
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith(':')) continue;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(':')) continue;
 
-      if (trimmed === 'data: [DONE]') {
-        continue;
-      }
+        if (trimmed === 'data: [DONE]') {
+          continue;
+        }
 
-      if (trimmed.startsWith('data: ')) {
-        const jsonStr = trimmed.slice(6);
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const choice = parsed.choices?.[0];
-          if (!choice) continue;
+        if (trimmed.startsWith('data: ')) {
+          const jsonStr = trimmed.slice(6);
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const choice = parsed.choices?.[0];
+            if (!choice) continue;
 
-          const delta = choice.delta;
-          if (!delta) continue;
+            const delta = choice.delta;
+            if (!delta) continue;
 
-          // 1. Check for thinking / reasoning tokens (DeepSeek R1, Nemotron, Groq)
-          const reasoning = delta.reasoning_content || delta.reasoning || delta.thought;
-          if (reasoning) {
-            fullThought += reasoning;
-            if (onThought) onThought(reasoning);
-          }
-
-          // 2. Check for standard content
-          if (delta.content) {
-            fullContent += delta.content;
-            if (onToken) onToken(delta.content);
-          }
-
-          // 3. Check for streaming tool calls
-          if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
-            for (const tc of delta.tool_calls) {
-              const idx = tc.index ?? 0;
-              if (!accumulatedToolCalls[idx]) {
-                accumulatedToolCalls[idx] = {
-                  id: tc.id || `call_${Date.now()}_${idx}`,
-                  type: 'function',
-                  function: { name: '', arguments: '' }
-                };
-              }
-              if (tc.id) accumulatedToolCalls[idx].id = tc.id;
-              if (tc.function?.name) accumulatedToolCalls[idx].function.name += tc.function.name;
-              if (tc.function?.arguments) accumulatedToolCalls[idx].function.arguments += tc.function.arguments;
+            // 1. Check for thinking / reasoning tokens (DeepSeek R1, Nemotron, Groq)
+            const reasoning = delta.reasoning_content || delta.reasoning || delta.thought;
+            if (reasoning) {
+              fullThought += reasoning;
+              if (onThought) onThought(reasoning);
             }
+
+            // 2. Check for standard content
+            if (delta.content) {
+              fullContent += delta.content;
+              if (onToken) onToken(delta.content);
+            }
+
+            // 3. Check for streaming tool calls
+            if (delta.tool_calls && Array.isArray(delta.tool_calls)) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0;
+                if (!accumulatedToolCalls[idx]) {
+                  accumulatedToolCalls[idx] = {
+                    id: tc.id || `call_${Date.now()}_${idx}`,
+                    type: 'function',
+                    function: { name: '', arguments: '' }
+                  };
+                }
+                if (tc.id) accumulatedToolCalls[idx].id = tc.id;
+                if (tc.function?.name) accumulatedToolCalls[idx].function.name += tc.function.name;
+                if (tc.function?.arguments) accumulatedToolCalls[idx].function.arguments += tc.function.arguments;
+              }
+            }
+          } catch {
+            // Ignore partial chunk decode errors
           }
-        } catch {
-          // Ignore partial chunk decode errors
         }
       }
     }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch (_) {}
   }
 
   // Format completed tool calls

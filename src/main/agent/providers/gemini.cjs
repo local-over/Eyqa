@@ -11,6 +11,7 @@ async function streamGemini({
   messages,
   systemPrompt,
   enableTools = true,
+  customTools = null,
   onToken,
   onThought,
   onToolCall,
@@ -82,8 +83,15 @@ async function streamGemini({
   }
 
   if (enableTools) {
+    const decls = (customTools && Array.isArray(customTools))
+      ? customTools.map(tool => ({
+          name: tool.function.name,
+          description: tool.function.description,
+          parameters: tool.function.parameters
+        }))
+      : GEMINI_FUNCTION_DECLARATIONS;
     payload.tools = [{
-      functionDeclarations: GEMINI_FUNCTION_DECLARATIONS
+      functionDeclarations: decls
     }];
   }
 
@@ -115,56 +123,62 @@ async function streamGemini({
   let fullThought = '';
   const detectedToolCalls = [];
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split('\n');
-    buffer = lines.pop() || '';
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split('\n');
+      buffer = lines.pop() || '';
 
-    for (const line of lines) {
-      const trimmed = line.trim();
-      if (!trimmed || trimmed.startsWith(':')) continue;
+      for (const line of lines) {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith(':')) continue;
 
-      if (trimmed.startsWith('data: ')) {
-        const jsonStr = trimmed.slice(6);
-        try {
-          const parsed = JSON.parse(jsonStr);
-          const candidate = parsed.candidates?.[0];
-          if (!candidate) continue;
+        if (trimmed.startsWith('data: ')) {
+          const jsonStr = trimmed.slice(6);
+          try {
+            const parsed = JSON.parse(jsonStr);
+            const candidate = parsed.candidates?.[0];
+            if (!candidate) continue;
 
-          const parts = candidate.content?.parts || [];
-          for (const part of parts) {
-            // Text chunk
-            if (part.text) {
-              fullContent += part.text;
-              if (onToken) onToken(part.text);
+            const parts = candidate.content?.parts || [];
+            for (const part of parts) {
+              // Text chunk
+              if (part.text) {
+                fullContent += part.text;
+                if (onToken) onToken(part.text);
+              }
+
+              // Thought chunk if Gemini 2.0 thinking
+              if (part.thought) {
+                fullThought += part.thought;
+                if (onThought) onThought(part.thought);
+              }
+
+              // Function Call chunk
+              if (part.functionCall) {
+                const callId = `call_gemini_${Date.now()}_${detectedToolCalls.length}`;
+                const tc = {
+                  id: callId,
+                  name: part.functionCall.name,
+                  arguments: part.functionCall.args || {}
+                };
+                detectedToolCalls.push(tc);
+                if (onToolCall) onToolCall(tc);
+              }
             }
-
-            // Thought chunk if Gemini 2.0 thinking
-            if (part.thought) {
-              fullThought += part.thought;
-              if (onThought) onThought(part.thought);
-            }
-
-            // Function Call chunk
-            if (part.functionCall) {
-              const callId = `call_gemini_${Date.now()}_${detectedToolCalls.length}`;
-              const tc = {
-                id: callId,
-                name: part.functionCall.name,
-                arguments: part.functionCall.args || {}
-              };
-              detectedToolCalls.push(tc);
-              if (onToolCall) onToolCall(tc);
-            }
+          } catch {
+            // ignore partial parse error
           }
-        } catch {
-          // ignore partial parse error
         }
       }
     }
+  } finally {
+    try {
+      await reader.cancel();
+    } catch (_) {}
   }
 
   return {

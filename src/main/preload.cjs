@@ -12,9 +12,13 @@ contextBridge.exposeInMainWorld('eyqaApi', {
   testProvider: (id, customConfig) => ipcRenderer.invoke('tools:testProvider', id, customConfig),
 
   // Session & Conversations
+  listProjects: () => ipcRenderer.invoke('store:listProjects'),
+  createProject: (name, folderPath, folderName, extraProps) => ipcRenderer.invoke('store:createProject', name, folderPath, folderName, extraProps),
+  updateProject: (id, updates) => ipcRenderer.invoke('store:updateProject', id, updates),
+  deleteProject: (id) => ipcRenderer.invoke('store:deleteProject', id),
   getSessions: () => ipcRenderer.invoke('store:getSessions'),
   getSession: (id) => ipcRenderer.invoke('store:getSession', id),
-  createSession: (title, mode, folder) => ipcRenderer.invoke('store:createSession', title, mode, folder),
+  createSession: (title, projectId) => ipcRenderer.invoke('store:createSession', title, projectId),
   saveSession: (session) => ipcRenderer.invoke('store:saveSession', session),
   deleteSession: (id) => ipcRenderer.invoke('store:deleteSession', id),
 
@@ -24,6 +28,31 @@ contextBridge.exposeInMainWorld('eyqaApi', {
   listWorkspace: (subDir) => ipcRenderer.invoke('tools:listWorkspace', subDir),
   readWorkspaceFile: (relPath) => ipcRenderer.invoke('tools:readWorkspaceFile', relPath),
   writeWorkspaceFile: (relPath, content) => ipcRenderer.invoke('tools:writeWorkspaceFile', relPath, content),
+  replaceFileContent: (relPath, oldContent, newContent, startLine, endLine, allowMultiple) => ipcRenderer.invoke('tools:replaceFileContent', relPath, oldContent, newContent, startLine, endLine, allowMultiple),
+  viewFile: (relPath, startLine, endLine, offset) => ipcRenderer.invoke('tools:viewFile', relPath, startLine, endLine, offset),
+
+  // Terminal & Process Management
+  runCommand: (options) => ipcRenderer.invoke('terminal:runCommand', options),
+  manageTask: (options) => ipcRenderer.invoke('terminal:manageTask', options),
+
+  // Browser Engine
+  browserNavigate: (url, timeoutMs) => ipcRenderer.invoke('browser:navigate', url, timeoutMs),
+  browserAction: (payload) => ipcRenderer.invoke('browser:action', payload),
+  readBrowserPage: (payload) => ipcRenderer.invoke('browser:readPage', payload),
+
+  // Image Generation
+  generateImage: (payload) => ipcRenderer.invoke('image:generate', payload),
+
+  // Interactive Decisions (ask_question)
+  submitQuestionAnswer: (questionId, answers) => ipcRenderer.invoke('agent:submitQuestionAnswer', questionId, answers),
+
+  // Snapshot Management
+  getSnapshots: (projectId, fileRelPath) => ipcRenderer.invoke('workspace:getSnapshots', projectId, fileRelPath),
+  revertSnapshot: (snapshotId, projectId) => ipcRenderer.invoke('workspace:revertSnapshot', snapshotId, projectId),
+  getFileContent: (projectId, fileRelPath) => ipcRenderer.invoke('workspace:getFileContent', projectId, fileRelPath),
+  getProjectMemory: (projectId) => ipcRenderer.invoke('workspace:getMemory', projectId),
+  saveProjectMemory: (projectId, memoryData) => ipcRenderer.invoke('workspace:saveMemory', projectId, memoryData),
+  getProjectChangelog: (projectId) => ipcRenderer.invoke('workspace:getChangelog', projectId),
 
   // Direct Tools
   searchWeb: (query, maxResults) => ipcRenderer.invoke('tools:searchWeb', query, maxResults),
@@ -59,6 +88,18 @@ contextBridge.exposeInMainWorld('eyqaApi', {
     ipcRenderer.on('agent:fallback', handler);
     return () => ipcRenderer.removeListener('agent:fallback', handler);
   },
+  onAskQuestion: (callback) => {
+    const handler = (_, qData) => callback(qData);
+    ipcRenderer.on('agent:ask-question', handler);
+    return () => ipcRenderer.removeListener('agent:ask-question', handler);
+  },
+
+  // Embedded FCC Background Service
+  getFCCStatus: () => ipcRenderer.invoke('fcc:getStatus'),
+  getFCCLogs: () => ipcRenderer.invoke('fcc:getLogs'),
+  restartFCCService: () => ipcRenderer.invoke('fcc:restart'),
+  stopFCCService: () => ipcRenderer.invoke('fcc:stop'),
+  startFCCService: () => ipcRenderer.invoke('fcc:start'),
 
   // Window Controls
   minimize: () => ipcRenderer.invoke('window:minimize'),

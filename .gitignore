@@ -4,3 +4,8 @@ dist/
 *.log
 .DS_Store
 Thumbs.db
+.eyqa/
+__pycache__/
+*.pyc
+scratch/
+.system_generated/
