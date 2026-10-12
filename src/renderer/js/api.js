@@ -262,6 +262,79 @@ export const api = {
     return { success: false };
   },
 
+  // Browser Takeover & Human Assistance
+  async takeBrowserControl() {
+    if (isElectron && window.eyqaApi.takeBrowserControl) {
+      return await window.eyqaApi.takeBrowserControl();
+    }
+    return { success: false };
+  },
+
+  async handBackBrowserControl(notes = null) {
+    if (isElectron && window.eyqaApi.handBackBrowserControl) {
+      return await window.eyqaApi.handBackBrowserControl(notes);
+    }
+    return { success: false };
+  },
+
+  async resolveBrowserTakeover(takeoverId, notes = null) {
+    if (isElectron && window.eyqaApi.resolveBrowserTakeover) {
+      return await window.eyqaApi.resolveBrowserTakeover(takeoverId, notes);
+    }
+    return { success: false };
+  },
+
+  // Universal Dynamic Memory
+  async getUniversalMemory() {
+    if (isElectron && window.eyqaApi.getUniversalMemory) {
+      return await window.eyqaApi.getUniversalMemory();
+    }
+    return { userProfile: {}, learnedFacts: [] };
+  },
+
+  async updateUniversalProfile(profile) {
+    if (isElectron && window.eyqaApi.updateUniversalProfile) {
+      return await window.eyqaApi.updateUniversalProfile(profile);
+    }
+    return {};
+  },
+
+  async addUniversalFact(fact) {
+    if (isElectron && window.eyqaApi.addUniversalFact) {
+      return await window.eyqaApi.addUniversalFact(fact);
+    }
+    return {};
+  },
+
+  async deleteUniversalFact(id) {
+    if (isElectron && window.eyqaApi.deleteUniversalFact) {
+      return await window.eyqaApi.deleteUniversalFact(id);
+    }
+    return false;
+  },
+
+  // AI Skills Framework
+  async listSkills(projectId = null) {
+    if (isElectron && window.eyqaApi.listSkills) {
+      return await window.eyqaApi.listSkills(projectId);
+    }
+    return [];
+  },
+
+  async searchSkillsHub(query) {
+    if (isElectron && window.eyqaApi.searchSkillsHub) {
+      return await window.eyqaApi.searchSkillsHub(query);
+    }
+    return { success: false };
+  },
+
+  async installSkill(payload) {
+    if (isElectron && window.eyqaApi.installSkill) {
+      return await window.eyqaApi.installSkill(payload);
+    }
+    return { success: false };
+  },
+
   // Turn Execution
   async startTurn(payload, handlers = {}) {
     if (isElectron) {
@@ -272,6 +345,9 @@ export const api = {
       if (handlers.onToolResult) unsubs.push(window.eyqaApi.onToolResult(handlers.onToolResult));
       if (handlers.onFallback) unsubs.push(window.eyqaApi.onFallback(handlers.onFallback));
       if (handlers.onAskQuestion) unsubs.push(window.eyqaApi.onAskQuestion(handlers.onAskQuestion));
+      if (handlers.onBrowserTakeover && window.eyqaApi.onBrowserTakeover) {
+        unsubs.push(window.eyqaApi.onBrowserTakeover(handlers.onBrowserTakeover));
+      }
 
       try {
         const res = await window.eyqaApi.startTurn(payload);

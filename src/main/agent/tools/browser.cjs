@@ -34,7 +34,6 @@ class AgentBrowser {
       show: false,
       backgroundColor: '#ffffff',
       webPreferences: {
-        offscreen: true,
         contextIsolation: true,
         nodeIntegration: false,
         sandbox: true,
@@ -431,6 +430,145 @@ class AgentBrowser {
       screenshot
     };
   }
+
+  /**
+   * Hands off the browser to the user with a visible window and floating guidance banner.
+   * Records user navigation events and resumes once the user hands control back.
+   */
+  async requestTakeover({ reason, problemDescription, url = null }) {
+    const win = await this.getOrCreateWindow();
+    const wc = win.webContents;
+
+    if (url && typeof url === 'string') {
+      await this.navigate({ url });
+    }
+
+    const currentUrl = wc.getURL() || url || 'about:blank';
+    const currentTitle = await wc.getTitle().catch(() => '');
+
+    this.takeoverLogs = [
+      {
+        timestamp: new Date().toISOString(),
+        event: 'takeover_initiated',
+        url: currentUrl,
+        title: currentTitle,
+        reason: reason || 'Human assistance required',
+        problemDescription: problemDescription || 'Please resolve the prompt or challenge'
+      }
+    ];
+
+    win.show();
+    win.focus();
+
+    // Inject floating guidance banner
+    const injectBanner = async () => {
+      try {
+        await wc.executeJavaScript(`
+          (() => {
+            const old = document.getElementById('eyqa-handoff-banner');
+            if (old) old.remove();
+
+            const banner = document.createElement('div');
+            banner.id = 'eyqa-handoff-banner';
+            banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:2147483647;background:#0d0d0d;color:#ffffff;border-bottom:1px solid rgba(255,255,255,0.2);padding:10px 18px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 6px 20px rgba(0,0,0,0.6);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;font-size:13px;';
+            
+            banner.innerHTML = \`
+              <div style="display:flex;align-items:center;gap:12px;">
+                <span style="background:#ffffff;color:#000000;font-weight:700;font-size:11px;padding:3px 8px;border-radius:12px;letter-spacing:0.5px;">EYQA USER TAKEOVER</span>
+                <span style="color:#d4d4d8;">\${${JSON.stringify(reason || 'Human assistance requested')}}</span>
+              </div>
+              <button id="eyqa-finish-takeover-btn" style="background:#ffffff;color:#000000;border:none;padding:6px 16px;border-radius:10px;font-weight:600;font-size:12px;cursor:pointer;">Hand Back to Eyqa ↩</button>
+            \`;
+
+            document.documentElement.appendChild(banner);
+            document.body.style.paddingTop = '48px';
+
+            document.getElementById('eyqa-finish-takeover-btn')?.addEventListener('click', () => {
+              window.__eyqaHandBackRequested = true;
+            });
+          })()
+        `);
+      } catch (_) {}
+    };
+
+    await injectBanner();
+
+    // Listen for navigations during user session
+    const onDidNavigate = (event, navUrl) => {
+      this.takeoverLogs.push({
+        timestamp: new Date().toISOString(),
+        event: 'user_navigated',
+        url: navUrl
+      });
+      setTimeout(injectBanner, 600);
+    };
+    wc.on('did-navigate', onDidNavigate);
+
+    return new Promise((resolve) => {
+      this.activeTakeoverResolver = async (userNotes = null) => {
+        wc.removeListener('did-navigate', onDidNavigate);
+        try {
+          win.hide();
+        } catch (_) {}
+
+        const finalUrl = wc.getURL();
+        const finalTitle = await wc.getTitle().catch(() => finalUrl);
+
+        this.takeoverLogs.push({
+          timestamp: new Date().toISOString(),
+          event: 'handed_back',
+          url: finalUrl,
+          title: finalTitle,
+          notes: userNotes || 'User completed interaction'
+        });
+
+        resolve({
+          success: true,
+          status: 'handed_back',
+          reason,
+          finalUrl,
+          finalTitle,
+          logCount: this.takeoverLogs.length,
+          interactions: this.takeoverLogs,
+          message: `User completed takeover on ${finalUrl}. Eyqa now has full context of the updated session.`
+        });
+      };
+
+      // Periodic check if button was clicked inside the webpage
+      const checkInterval = setInterval(async () => {
+        if (!win || win.isDestroyed()) {
+          clearInterval(checkInterval);
+          resolve({
+            success: true,
+            status: 'window_closed',
+            finalUrl: currentUrl,
+            message: 'Browser window closed by user.'
+          });
+          return;
+        }
+
+        try {
+          const clicked = await wc.executeJavaScript('Boolean(window.__eyqaHandBackRequested)');
+          if (clicked) {
+            clearInterval(checkInterval);
+            if (this.activeTakeoverResolver) {
+              this.activeTakeoverResolver('User clicked Hand Back button in browser banner');
+            }
+          }
+        } catch (_) {}
+      }, 500);
+    });
+  }
+
+  handBack(notes = null) {
+    if (this.activeTakeoverResolver) {
+      const resolver = this.activeTakeoverResolver;
+      this.activeTakeoverResolver = null;
+      resolver(notes);
+      return true;
+    }
+    return false;
+  }
 }
 
 const defaultBrowser = new AgentBrowser();
@@ -440,5 +578,8 @@ module.exports = {
   browserNavigate: (args) => defaultBrowser.navigate(args),
   browserAction: (args) => defaultBrowser.action(args),
   readBrowserPage: (args) => defaultBrowser.readPage(args),
-  closeBrowser: () => defaultBrowser.close()
+  requestBrowserTakeover: (args) => defaultBrowser.requestTakeover(args),
+  handBackBrowser: (notes) => defaultBrowser.handBack(notes),
+  closeBrowser: () => defaultBrowser.close(),
+  getDefaultBrowser: () => defaultBrowser
 };

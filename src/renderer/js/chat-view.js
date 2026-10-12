@@ -860,6 +860,84 @@ export class ChatView {
     });
   }
 
+  renderBrowserTakeoverCard({ takeoverId, reason, problemDescription, url }) {
+    if (!this.streamingAssistantEl) {
+      this.startStream(null);
+    }
+
+    if (this.streamingProcessWrapper) {
+      this.streamingProcessWrapper.hidden = false;
+    }
+    if (this.streamingProcessBody) {
+      this.streamingProcessBody.hidden = false;
+      this.streamingProcessWrapper.classList.remove('is-folded');
+      const statusTag = this.streamingProcessWrapper.querySelector('#streamProcessStatus');
+      if (statusTag) {
+        statusTag.textContent = 'Human Assistance Required';
+        statusTag.className = 'process-status-tag status-decision';
+      }
+    }
+
+    const targetContainer = this.streamingToolsList || this.streamingAssistantEl.querySelector('.assistant-card');
+
+    const card = document.createElement('div');
+    card.className = 'question-interactive-card browser-takeover-card';
+    card.dataset.takeoverId = takeoverId;
+
+    card.innerHTML = `
+      <div class="decision-card-header">
+        <span class="decision-header-icon">${icons.globe || '🌐'}</span>
+        <strong class="decision-header-title">Browser Assistance Required</strong>
+        <span class="takeover-badge">Captcha / Verification</span>
+      </div>
+
+      <div class="takeover-card-body">
+        <p class="takeover-reason"><strong>Issue:</strong> ${this._escape(reason || 'Human intervention required')}</p>
+        <p class="takeover-description">${this._escape(problemDescription || 'Please resolve verification or login in the browser window')}</p>
+        ${url ? `<div class="takeover-url-pill"><code>${this._escape(url)}</code></div>` : ''}
+
+        <div class="takeover-card-actions" style="display:flex;gap:10px;margin-top:12px;">
+          <button type="button" class="primary-btn btn-take-control">
+            <span>Take Control</span> ↗
+          </button>
+          <button type="button" class="secondary-btn btn-hand-back" style="display:none;">
+            <span>I'm Done - Hand Back to Eyqa</span> ↩
+          </button>
+        </div>
+        <div class="takeover-status-feedback" style="display:none;font-size:12px;color:var(--text-secondary);margin-top:8px;"></div>
+      </div>
+    `;
+
+    targetContainer.appendChild(card);
+    this.scrollToBottom();
+
+    const btnTakeControl = card.querySelector('.btn-take-control');
+    const btnHandBack = card.querySelector('.btn-hand-back');
+    const feedback = card.querySelector('.takeover-status-feedback');
+
+    btnTakeControl.addEventListener('click', async () => {
+      btnTakeControl.innerHTML = `<span>Browser Open — Solve Challenge</span>`;
+      btnTakeControl.disabled = true;
+      btnHandBack.style.display = 'inline-flex';
+      feedback.style.display = 'block';
+      feedback.innerHTML = `<em>Browser window opened. Solve the captcha, login, or click challenge on screen, then click "I'm Done".</em>`;
+      await api.takeBrowserControl();
+    });
+
+    btnHandBack.addEventListener('click', async () => {
+      btnHandBack.disabled = true;
+      btnHandBack.innerHTML = `<span>Handing back to Eyqa...</span>`;
+      await api.resolveBrowserTakeover(takeoverId, 'User completed challenge and clicked I\'m Done in chat card');
+      card.classList.add('decision-confirmed');
+      card.innerHTML = `
+        <div class="decision-summary-badge">
+          <span class="confirmed-check">✓</span>
+          <span>Browser Control Handed Back to Eyqa • Resuming Automation</span>
+        </div>
+      `;
+    });
+  }
+
   addFallbackNotice(info) {
     // No-op: Removed redundant chat message spam for background model rotation
   }

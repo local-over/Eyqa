@@ -172,6 +172,19 @@ export class SettingsView {
     } catch (_) {
       this.fccStatus = { running: false, status: 'stopped', port: 8082 };
     }
+
+    try {
+      this.universalMemory = await api.getUniversalMemory();
+    } catch (_) {
+      this.universalMemory = { userProfile: {}, learnedFacts: [] };
+    }
+
+    try {
+      this.installedSkills = await api.listSkills(this.activeProjectId);
+    } catch (_) {
+      this.installedSkills = [];
+    }
+
     if (initialTab) {
       this.activeTab = initialTab;
     } else if (this.settings.engineMode === 'paid') {
@@ -229,6 +242,18 @@ export class SettingsView {
             <span>Project Settings</span>
           </button>
 
+          <button class="settings-rail-item ${this.activeTab === 'memory' ? 'active' : ''}" data-tab="memory">
+            ${icons.sparkles}
+            <span>Dynamic Memory</span>
+            <span class="rail-item-badge badge-active">Universal</span>
+          </button>
+
+          <button class="settings-rail-item ${this.activeTab === 'skills' ? 'active' : ''}" data-tab="skills">
+            ${icons.code || icons.briefcase}
+            <span>AI Skills Hub</span>
+            <span class="rail-item-badge">hub.ai</span>
+          </button>
+
           <button class="settings-rail-item ${this.activeTab === 'general' ? 'active' : ''}" data-tab="general">
             ${icons.settings}
             <span>Preferences</span>
@@ -272,6 +297,8 @@ export class SettingsView {
       case 'free': return 'Free AI Pool & 1.75B Token Capacity';
       case 'paid': return 'Paid Frontier Models & Reasoning';
       case 'project': return 'Active Project Configuration';
+      case 'memory': return 'Universal Dynamic Memory';
+      case 'skills': return 'AI Skills & Skills Hub Integration';
       case 'general': return 'Preferences & Customization';
       default: return 'Settings';
     }
@@ -282,6 +309,8 @@ export class SettingsView {
       case 'free': return '100% Automated pool. No manual model selection needed—Eyqa automatically routes through all 19 Free Claude Code providers with instant HTTP 429 failover.';
       case 'paid': return 'Official paid API keys for Anthropic Claude 3.7 Sonnet, OpenAI GPT-4o, DeepSeek-V3/R1, and xAI Grok with manual model selection and reasoning effort controls.';
       case 'project': return 'Configure workspace folder permissions and custom system prompt rules for the current project.';
+      case 'memory': return 'Cross-project learned memory. Eyqa dynamically updates habits, context, and preferences across conversations.';
+      case 'skills': return 'Modular skills catalog and live discovery from https://skills-hub.ai. Enhance Eyqa with domain-specific workflows.';
       case 'general': return 'Theme appearance, DuckDuckGo web search grounding defaults, and keyboard shortcuts.';
       default: return '';
     }
@@ -296,6 +325,12 @@ export class SettingsView {
     }
     if (this.activeTab === 'project') {
       return this._renderProjectTab();
+    }
+    if (this.activeTab === 'memory') {
+      return this._renderMemoryTab();
+    }
+    if (this.activeTab === 'skills') {
+      return this._renderSkillsTab();
     }
     if (this.activeTab === 'general') {
       return this._renderGeneralTab();
@@ -1141,6 +1176,144 @@ export class SettingsView {
   }
 
   /**
+   * Tab: Universal Dynamic Memory
+   */
+  _renderMemoryTab() {
+    const mem = this.universalMemory || { userProfile: {}, learnedFacts: [] };
+    const profile = mem.userProfile || {};
+    const facts = mem.learnedFacts || [];
+
+    return `
+      <!-- User Profile & Context -->
+      <div class="settings-section-card">
+        <div class="section-card-title">User Profile & Work Context</div>
+        <div class="section-card-desc">Information Eyqa remembers about you universally across all projects.</div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px;">
+          <div>
+            <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Your Name / Preferred Nickname</label>
+            <input type="text" class="input-text" id="memUserName" value="${this._escape(profile.name || '')}" placeholder="e.g. Hassan" style="width: 100%;" />
+          </div>
+          <div>
+            <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Your Role / Occupation</label>
+            <input type="text" class="input-text" id="memUserRole" value="${this._escape(profile.roleOrTitle || '')}" placeholder="e.g. Software Engineer & Product Designer" style="width: 100%;" />
+          </div>
+        </div>
+
+        <div style="margin-top: 14px;">
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Preferred Communication Tone</label>
+          <input type="text" class="input-text" id="memUserTone" value="${this._escape(profile.preferredTone || 'natural, sharp, concise')}" placeholder="e.g. natural, sharp, concise (no AI slop)" style="width: 100%;" />
+        </div>
+
+        <div style="margin-top: 14px;">
+          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Global Directives & Habits</label>
+          <textarea class="input-text" id="memUserDirectives" rows="2" placeholder="e.g. Prefer TypeScript; format summaries as bullet points; always cite sources." style="width: 100%;">${this._escape(profile.customDirectives || '')}</textarea>
+        </div>
+
+        <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
+          <button class="primary-btn btn-save-memory-profile">
+            ${icons.check} Save User Profile
+          </button>
+        </div>
+      </div>
+
+      <!-- Dynamic Learned Facts -->
+      <div class="settings-section-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div class="section-card-title">Dynamic Learned Facts & Rules</div>
+            <div class="section-card-desc">Facts Eyqa has learned during conversations or that you manually defined.</div>
+          </div>
+          <span style="font-size: 12px; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 12px;">${facts.length} Memories</span>
+        </div>
+
+        <!-- Add Memory Fact Form -->
+        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; margin-top: 14px;">
+          <div style="font-size: 12.5px; font-weight: 600; margin-bottom: 10px; color: #fff;">+ Add New Memory Fact</div>
+          <div style="display: grid; grid-template-columns: 140px 180px 1fr auto; gap: 10px; align-items: center;">
+            <select class="input-text" id="newFactCategory" style="padding: 6px 10px;">
+              <option value="fact">Fact</option>
+              <option value="preference">Preference</option>
+              <option value="instruction">Instruction</option>
+              <option value="work_context">Work Context</option>
+            </select>
+            <input type="text" class="input-text" id="newFactKey" placeholder="Concept / Key (e.g. Stack)" />
+            <input type="text" class="input-text" id="newFactValue" placeholder="Detail to remember permanently..." />
+            <button class="secondary-btn btn-add-memory-fact" style="background: #ffffff; color: #000; font-weight: 600;">Add</button>
+          </div>
+        </div>
+
+        <!-- Facts List -->
+        <div class="memory-facts-list" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;">
+          ${facts.length === 0 ? `
+            <div style="padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px;">
+              No memories recorded yet. Eyqa will dynamically remember facts as you chat, or you can add them above.
+            </div>
+          ` : facts.map(f => `
+            <div class="memory-fact-item" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 10px;">
+              <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
+                <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(255,255,255,0.08); color: var(--text-secondary); padding: 3px 8px; border-radius: 6px; font-weight: 600;">${this._escape(f.category || 'fact')}</span>
+                <strong style="font-size: 13px; color: #fff;">${this._escape(f.key)}:</strong>
+                <span style="font-size: 13px; color: var(--text-secondary);">${this._escape(f.value)}</span>
+              </div>
+              <button class="icon-btn btn-delete-fact" data-id="${f.id}" title="Delete memory" style="color: #ef4444; opacity: 0.7; cursor: pointer;">
+                ${icons.trash}
+              </button>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  /**
+   * Tab: AI Skills Hub
+   */
+  _renderSkillsTab() {
+    const skills = this.installedSkills || [];
+
+    return `
+      <!-- Installed Skills -->
+      <div class="settings-section-card">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+          <div>
+            <div class="section-card-title">Installed AI Skills</div>
+            <div class="section-card-desc">Domain-specific workflows following the standard SKILL.md specification.</div>
+          </div>
+          <span style="font-size: 12px; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 12px;">${skills.length} Installed</span>
+        </div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 14px;">
+          ${skills.map(s => `
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                <strong style="color: #fff; font-size: 14px;">${this._escape(s.name)}</strong>
+                <span style="font-size: 11px; text-transform: uppercase; background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 8px; color: var(--text-secondary);">${this._escape(s.scope || 'global')}</span>
+              </div>
+              <p style="font-size: 12.5px; color: var(--text-secondary); margin: 0; line-height: 1.4;">${this._escape(s.description)}</p>
+            </div>
+          `).join('')}
+        </div>
+      </div>
+
+      <!-- Skills Hub Online Registry Search -->
+      <div class="settings-section-card">
+        <div class="section-card-title">Explore Skills Hub (https://skills-hub.ai)</div>
+        <div class="section-card-desc">Discover and install specialized AI skills for document generation, analysis, or devops.</div>
+
+        <div style="display: flex; gap: 10px; margin-top: 14px;">
+          <input type="text" class="input-text" id="skillsHubSearchInput" placeholder="Search skills (e.g. dare-engine, pdf, seo, git, sql, ui)..." style="flex: 1;" />
+          <button class="primary-btn btn-search-skills-hub" style="white-space: nowrap;">
+            ${icons.globe} Search Hub
+          </button>
+        </div>
+
+        <div id="skillsHubResultsContainer" style="margin-top: 16px;"></div>
+      </div>
+    `;
+  }
+
+  /**
    * Tab 4: General Preferences
    */
   _renderGeneralTab() {
@@ -1526,6 +1699,122 @@ export class SettingsView {
         if (this.onNotification) this.onNotification(`Project "${currentProj.name}" deleted.`, 'info');
         this.render();
       }
+    });
+
+    // --- Dynamic Memory Tab Events ---
+    this.container.querySelector('.btn-save-memory-profile')?.addEventListener('click', async () => {
+      const name = this.container.querySelector('#memUserName')?.value?.trim();
+      const role = this.container.querySelector('#memUserRole')?.value?.trim();
+      const tone = this.container.querySelector('#memUserTone')?.value?.trim();
+      const directives = this.container.querySelector('#memUserDirectives')?.value?.trim();
+
+      await api.updateUniversalProfile({
+        name,
+        roleOrTitle: role,
+        preferredTone: tone,
+        customDirectives: directives
+      });
+      this.universalMemory = await api.getUniversalMemory();
+      if (this.onNotification) this.onNotification('Universal Profile saved to Dynamic Memory.', 'success');
+      this.render();
+    });
+
+    this.container.querySelector('.btn-add-memory-fact')?.addEventListener('click', async () => {
+      const key = this.container.querySelector('#newFactKey')?.value?.trim();
+      const value = this.container.querySelector('#newFactValue')?.value?.trim();
+      const category = this.container.querySelector('#newFactCategory')?.value;
+
+      if (!key || !value) {
+        if (this.onNotification) this.onNotification('Key and detail value are required.', 'error');
+        return;
+      }
+
+      await api.addUniversalFact({ key, value, category });
+      this.universalMemory = await api.getUniversalMemory();
+      if (this.onNotification) this.onNotification(`Learned Fact "${key}" added to memory.`, 'success');
+      this.render();
+    });
+
+    this.container.querySelectorAll('.btn-delete-fact').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const id = e.currentTarget.dataset.id;
+        if (id) {
+          await api.deleteUniversalFact(id);
+          this.universalMemory = await api.getUniversalMemory();
+          if (this.onNotification) this.onNotification('Fact removed from memory.', 'info');
+          this.render();
+        }
+      });
+    });
+
+    // --- AI Skills Tab Events ---
+    const searchHubBtn = this.container.querySelector('.btn-search-skills-hub');
+    const searchHubInput = this.container.querySelector('#skillsHubSearchInput');
+    const resultsContainer = this.container.querySelector('#skillsHubResultsContainer');
+
+    const executeHubSearch = async () => {
+      const query = searchHubInput?.value?.trim();
+      if (!query) return;
+      if (resultsContainer) {
+        resultsContainer.innerHTML = `<div style="color:var(--text-secondary);font-size:13px;padding:12px;">Searching Skills Hub for "${query}"...</div>`;
+      }
+      const res = await api.searchSkillsHub(query);
+      if (!res || !res.success) {
+        if (resultsContainer) resultsContainer.innerHTML = `<div style="color:#ef4444;font-size:13px;padding:12px;">Failed to query Skills Hub: ${res?.error || 'Unknown error'}</div>`;
+        return;
+      }
+
+      const results = res.hubResults || [];
+      if (results.length === 0) {
+        if (resultsContainer) resultsContainer.innerHTML = `<div style="color:var(--text-secondary);font-size:13px;padding:12px;">No skills matching "${query}". You can create one custom in ~/.config/eyqa/skills/.</div>`;
+        return;
+      }
+
+      if (resultsContainer) {
+        resultsContainer.innerHTML = `
+          <div style="display:grid;grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));gap:12px;">
+            ${results.map(r => `
+              <div style="background:rgba(255,255,255,0.03);border:1px solid var(--border-subtle);border-radius:12px;padding:14px;display:flex;flex-direction:column;justify-content:space-between;">
+                <div>
+                  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;">
+                    <strong style="color:#fff;font-size:13.5px;">${r.name}</strong>
+                    <span style="font-size:10.5px;color:var(--text-secondary);background:rgba(255,255,255,0.06);padding:2px 6px;border-radius:6px;">skills-hub.ai</span>
+                  </div>
+                  <p style="font-size:12px;color:var(--text-secondary);margin:0;line-height:1.4;">${r.description}</p>
+                </div>
+                <div style="margin-top:12px;display:flex;justify-content:space-between;align-items:center;">
+                  <a href="${r.source}" target="_blank" style="font-size:11.5px;color:#3b82f6;text-decoration:none;">View Spec ↗</a>
+                  <button class="primary-btn btn-install-hub-skill" data-name="${r.name}" style="padding:4px 10px;font-size:11.5px;">
+                    Install Skill
+                  </button>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+
+        resultsContainer.querySelectorAll('.btn-install-hub-skill').forEach(btn => {
+          btn.addEventListener('click', async (e) => {
+            const skillName = e.currentTarget.dataset.name;
+            e.currentTarget.disabled = true;
+            e.currentTarget.textContent = 'Installing...';
+            const instRes = await api.installSkill({ skillName });
+            if (instRes && instRes.success) {
+              if (this.onNotification) this.onNotification(`Skill "${skillName}" installed!`, 'success');
+              this.installedSkills = await api.listSkills(this.activeProjectId);
+              this.render();
+            } else {
+              e.currentTarget.disabled = false;
+              e.currentTarget.textContent = 'Retry Install';
+            }
+          });
+        });
+      }
+    };
+
+    searchHubBtn?.addEventListener('click', executeHubSearch);
+    searchHubInput?.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') executeHubSearch();
     });
 
     // --- Preferences Tab Events ---

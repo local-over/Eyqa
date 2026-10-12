@@ -93,6 +93,27 @@ contextBridge.exposeInMainWorld('eyqaApi', {
     ipcRenderer.on('agent:ask-question', handler);
     return () => ipcRenderer.removeListener('agent:ask-question', handler);
   },
+  onBrowserTakeover: (callback) => {
+    const handler = (_, takeoverData) => callback(takeoverData);
+    ipcRenderer.on('agent:browser-takeover', handler);
+    return () => ipcRenderer.removeListener('agent:browser-takeover', handler);
+  },
+
+  // Browser Takeover & Human Assistance
+  takeBrowserControl: () => ipcRenderer.invoke('browser:takeControl'),
+  handBackBrowserControl: (notes) => ipcRenderer.invoke('browser:handBack', notes),
+  resolveBrowserTakeover: (takeoverId, notes) => ipcRenderer.invoke('agent:resolveBrowserTakeover', takeoverId, notes),
+
+  // Universal Dynamic Memory
+  getUniversalMemory: () => ipcRenderer.invoke('memory:getAll'),
+  updateUniversalProfile: (profile) => ipcRenderer.invoke('memory:updateProfile', profile),
+  addUniversalFact: (fact) => ipcRenderer.invoke('memory:addFact', fact),
+  deleteUniversalFact: (id) => ipcRenderer.invoke('memory:deleteFact', id),
+
+  // AI Skills Framework
+  listSkills: (projectId) => ipcRenderer.invoke('skills:list', projectId),
+  searchSkillsHub: (query) => ipcRenderer.invoke('skills:searchHub', query),
+  installSkill: (payload) => ipcRenderer.invoke('skills:install', payload),
 
   // Embedded FCC Background Service
   getFCCStatus: () => ipcRenderer.invoke('fcc:getStatus'),

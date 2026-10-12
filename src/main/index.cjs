@@ -27,8 +27,18 @@ const {
   getProjectChangelog
 } = require('./agent/tools/workspace.cjs');
 const { runCommand, manageTask, cleanupAllTasks } = require('./agent/tools/terminal.cjs');
-const { browserNavigate, browserAction, readBrowserPage, closeBrowser } = require('./agent/tools/browser.cjs');
+const {
+  browserNavigate,
+  browserAction,
+  readBrowserPage,
+  requestBrowserTakeover,
+  handBackBrowser,
+  closeBrowser,
+  getDefaultBrowser
+} = require('./agent/tools/browser.cjs');
 const { generateImage } = require('./agent/tools/image-gen.cjs');
+const { getMemoryStore } = require('./storage/memory-store.cjs');
+const { getSkillsManager } = require('./agent/tools/skills.cjs');
 const { fccService } = require('./fcc-service.cjs');
 
 let mainWindow = null;
@@ -319,6 +329,54 @@ function setupIpcHandlers() {
     return orchestrator.resolveQuestion(questionId, answers);
   });
 
+  // Browser Takeover & Human Assistance IPC
+  ipcMain.handle('browser:takeControl', async () => {
+    const browser = getDefaultBrowser();
+    const win = await browser.getOrCreateWindow();
+    win.show();
+    win.focus();
+    return { success: true };
+  });
+
+  ipcMain.handle('browser:handBack', (_, notes) => {
+    return handBackBrowser(notes);
+  });
+
+  ipcMain.handle('agent:resolveBrowserTakeover', (_, takeoverId, notes) => {
+    return orchestrator.resolveBrowserTakeover(takeoverId, notes);
+  });
+
+  // Universal Dynamic Memory IPC
+  ipcMain.handle('memory:getAll', () => {
+    return getMemoryStore().getAll();
+  });
+
+  ipcMain.handle('memory:updateProfile', (_, profile) => {
+    return getMemoryStore().updateProfile(profile);
+  });
+
+  ipcMain.handle('memory:addFact', (_, fact) => {
+    return getMemoryStore().addFact(fact);
+  });
+
+  ipcMain.handle('memory:deleteFact', (_, id) => {
+    return getMemoryStore().deleteFact(id);
+  });
+
+  // AI Skills Framework IPC
+  ipcMain.handle('skills:list', (_, projectId) => {
+    const ws = projectId ? getWorkspaceRootForProject(projectId) : null;
+    return getSkillsManager().listSkills(ws);
+  });
+
+  ipcMain.handle('skills:searchHub', async (_, query) => {
+    return await getSkillsManager().searchSkillsHub(query);
+  });
+
+  ipcMain.handle('skills:install', async (_, payload) => {
+    return await getSkillsManager().installSkill(payload);
+  });
+
   // Snapshot Management
   ipcMain.handle('workspace:getSnapshots', (_, projectId, fileRelPath) => {
     const ws = getWorkspaceRootForProject(projectId);
@@ -400,6 +458,9 @@ function setupIpcHandlers() {
         },
         onAskQuestion: (qData) => {
           if (!ac.signal.aborted) sender.send('agent:ask-question', qData);
+        },
+        onBrowserTakeover: (takeoverData) => {
+          if (!ac.signal.aborted) sender.send('agent:browser-takeover', takeoverData);
         },
         signal: ac.signal
       });

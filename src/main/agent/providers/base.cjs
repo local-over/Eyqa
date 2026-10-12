@@ -463,15 +463,149 @@ const SCHEDULE_SCHEMAS = [
   }
 ];
 
+const BROWSER_TAKEOVER_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'request_browser_takeover',
+      description: 'Request the human user to take control of the browser window. Use this when encountering captchas (Cloudflare, reCAPTCHA), 2FA verification, login screens, bot detections, or when you need user approval/action on the webpage. Shows the browser window to the user, logs their interactions, and automatically resumes once they click "Hand Back to Eyqa".',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason: {
+            type: 'string',
+            description: 'Short headline explaining the issue (e.g. "Cloudflare Verification / Captcha Required", "GitHub Login Required").'
+          },
+          problemDescription: {
+            type: 'string',
+            description: 'Detailed instructions telling the user what specific action to complete on screen.'
+          },
+          url: {
+            type: 'string',
+            description: 'Optional URL to load before handing over control.'
+          }
+        },
+        required: ['reason', 'problemDescription']
+      }
+    }
+  }
+];
+
+const MEMORY_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'update_memory',
+      description: 'Dynamically store or update a persistent memory or learned fact about the user, their preferences, project domain, or work habits. Persists universally across all projects and chats.',
+      parameters: {
+        type: 'object',
+        properties: {
+          key: {
+            type: 'string',
+            description: 'Short concept title (e.g. "User Role", "Coding Preferences", "Project Domain", "Preferred Tone").'
+          },
+          value: {
+            type: 'string',
+            description: 'The specific fact, instruction, or preference to remember permanently.'
+          },
+          category: {
+            type: 'string',
+            enum: ['preference', 'fact', 'instruction', 'work_context'],
+            description: 'Category for memory organization.'
+          }
+        },
+        required: ['key', 'value']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'recall_memory',
+      description: 'Search or view universal persistent memories and user preferences.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Optional keyword to filter remembered facts.'
+          }
+        }
+      }
+    }
+  }
+];
+
+const SKILLS_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'search_skills_hub',
+      description: 'Search the AI Skills registry (https://skills-hub.ai) and local skills catalog for specialized capabilities (e.g. DARE engine, pdf processing, data analysis, seo, ui wireframes).',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Search query describing the task or skill needed.'
+          }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'install_skill',
+      description: 'Download and install an AI skill from Skills Hub into Eyqa\'s local skills catalog (~/.config/eyqa/skills/).',
+      parameters: {
+        type: 'object',
+        properties: {
+          skillName: {
+            type: 'string',
+            description: 'The identifier or name of the skill to install.'
+          },
+          sourceUrl: {
+            type: 'string',
+            description: 'Optional URL or registry source.'
+          }
+        },
+        required: ['skillName']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'use_skill',
+      description: 'Activate an installed AI skill and load its instructions into the current session context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          skillName: {
+            type: 'string',
+            description: 'Name of the installed skill to activate.'
+          }
+        },
+        required: ['skillName']
+      }
+    }
+  }
+];
+
 // Unified TOOL_SCHEMAS
 const TOOL_SCHEMAS = [
   ...WEB_TOOL_SCHEMAS,
+  ...BROWSER_TAKEOVER_SCHEMAS,
   ...WORKSPACE_TOOL_SCHEMAS,
   ...TERMINAL_TOOL_SCHEMAS,
   ...IMAGE_TOOL_SCHEMAS,
   ...INTERACTIVE_DECISION_SCHEMAS,
   ...SUBAGENT_SCHEMAS,
-  ...SCHEDULE_SCHEMAS
+  ...SCHEDULE_SCHEMAS,
+  ...MEMORY_SCHEMAS,
+  ...SKILLS_SCHEMAS
 ];
 
 // Gemini function declaration format

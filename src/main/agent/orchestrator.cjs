@@ -17,9 +17,16 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const { WEB_TOOL_SCHEMAS, TOOL_SCHEMAS } = require('./providers/base.cjs');
+const { getSystemPrompt } = require('./prompts.cjs');
 const { searchWeb } = require('./tools/web-search.cjs');
 const { fetchWebpage } = require('./tools/web-fetch.cjs');
-const { browserNavigate, browserAction, readBrowserPage } = require('./tools/browser.cjs');
+const {
+  browserNavigate,
+  browserAction,
+  readBrowserPage,
+  requestBrowserTakeover,
+  handBackBrowser
+} = require('./tools/browser.cjs');
 const {
   listWorkspace,
   readWorkspaceFile,
@@ -30,12 +37,15 @@ const {
 } = require('./tools/workspace.cjs');
 const { runCommand, manageTask } = require('./tools/terminal.cjs');
 const { generateImage } = require('./tools/image-gen.cjs');
+const { getMemoryStore } = require('../storage/memory-store.cjs');
+const { getSkillsManager } = require('./tools/skills.cjs');
 
 class AgentOrchestrator {
   constructor(providerManager, configStore) {
     this.providerManager = providerManager;
     this.configStore = configStore;
     this.pendingQuestions = new Map(); // questionId -> { resolve, reject }
+    this.pendingTakeovers = new Map(); // takeoverId -> { resolve, reject }
     this.activeSchedules = new Map();  // scheduleId -> timer / cron interval
   }
 
@@ -52,12 +62,25 @@ class AgentOrchestrator {
     return false;
   }
 
+  /**
+   * Resumes a paused turn when the user completes a browser takeover / challenge
+   */
+  resolveBrowserTakeover(takeoverId, notes) {
+    if (this.pendingTakeovers.has(takeoverId)) {
+      const { resolve } = this.pendingTakeovers.get(takeoverId);
+      this.pendingTakeovers.delete(takeoverId);
+      resolve(notes);
+      return true;
+    }
+    return handBackBrowser(notes);
+  }
+
   async runTurn({
     sessionId,
     messages,
     userMessage,
     folderPath = null,
-    modeId = 'chat',
+    modeId = 'coworker',
     providerId = null,
     enableTools = true,
     forceWebSearch = false,
@@ -67,6 +90,7 @@ class AgentOrchestrator {
     onToolStart,
     onToolResult,
     onAskQuestion,
+    onBrowserTakeover,
     onFallback,
     signal
   }) {
@@ -74,35 +98,26 @@ class AgentOrchestrator {
     const effectiveProviderId = providerId || config.activeProviderId || 'groq';
     const effectiveFolder = folderPath && folderPath.trim() ? folderPath.trim() : null;
 
-    let systemPrompt = '';
-    let customTools = TOOL_SCHEMAS;
+    let systemPrompt = getSystemPrompt(modeId || 'coworker', effectiveFolder);
+
+    // Inject Universal Dynamic Memory (persisted cross-project context)
+    const memoryStore = getMemoryStore();
+    systemPrompt += `\n\n${memoryStore.getSystemPromptSnippet()}`;
+
+    // Inject AI Skills Framework
+    const skillsManager = getSkillsManager();
+    const skillsSnippet = skillsManager.getSkillsPromptSnippet(effectiveFolder);
+    if (skillsSnippet) {
+      systemPrompt += `\n\n${skillsSnippet}`;
+    }
 
     if (effectiveFolder) {
-      systemPrompt = `You are Eyqa, an exceptionally capable, fast AI coworker assisting with files, codebases, and projects.
-You are working directly inside the local project directory: "${effectiveFolder}".
-
-You have a complete suite of specialized tools:
-- workspace_list, workspace_read_file, workspace_write_file: Basic file operations.
-- replace_file_content: Surgical precision search-and-replace for code changes without rewriting entire files. Creates automatic versioned snapshots.
-- view_file: View lines or chunks with line numbers, byte offsets, or inspect images/media.
-- run_command: Run terminal commands (e.g. tests, linters, git status, builds, package managers). For servers/watchers, set IsDaemon: true.
-- manage_task: Inspect or terminate background tasks started with run_command.
-- browser_navigate, browser_action, read_browser_page: Browse live websites with Chromium, execute JavaScript, click, fill forms, and take screenshots.
-- generate_image: Create images using Free Pollinations Flux (zero keys needed) or OpenAI DALL-E 3.
-- ask_question: If requirements are ambiguous or you need the user to make an architectural choice, ask them via an interactive decision modal.
-- invoke_subagent: Spawn specialized subagents (researcher, code_auditor, designer) in parallel.
-- schedule: Set one-shot timers or recurring cron triggers.`;
-
       const mem = getProjectMemory(effectiveFolder);
       if (mem && (mem.notes || mem.architecture)) {
         systemPrompt += `\n\n[Project Shared Memory & Architecture Notes]:\n`;
         if (mem.architecture) systemPrompt += `Architecture: ${mem.architecture}\n`;
         if (mem.notes) systemPrompt += `Notes: ${mem.notes}\n`;
       }
-    } else {
-      systemPrompt = `You are Eyqa, an extraordinarily capable, fast, and helpful AI coworker built for everyday users.
-You speak with clarity, intelligence, and natural human tone. Never use unnecessary AI fluff or patronizing language.
-You have real-time web search tools, an offscreen Chromium browser, image generation tools (Pollinations Flux & OpenAI DALL-E 3), interactive decision modals (ask_question), and subagent swarm delegation.`;
     }
 
     if (forceWebSearch) {
@@ -183,7 +198,8 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
             workspacePath: effectiveFolder,
             sessionId,
             signal,
-            onAskQuestion
+            onAskQuestion,
+            onBrowserTakeover
           });
         } catch (err) {
           output = { error: err.message };
@@ -227,7 +243,7 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
   }
 
   async _executeTool(name, args, ctx) {
-    const { workspacePath, sessionId, signal, onAskQuestion } = ctx;
+    const { workspacePath, sessionId, signal, onAskQuestion, onBrowserTakeover } = ctx;
 
     switch (name) {
       // 1. Web & Browser Tools
@@ -266,6 +282,36 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
           takeScreenshot: args?.takeScreenshot !== false,
           maxChars: args?.maxChars || 20000
         });
+      }
+
+      case 'request_browser_takeover': {
+        const takeoverId = `takeover_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+        const reason = args?.reason || 'Human assistance required';
+        const problemDescription = args?.problemDescription || 'Please resolve the prompt or challenge in the browser window';
+        const url = args?.url || null;
+
+        if (onBrowserTakeover) {
+          onBrowserTakeover({
+            takeoverId,
+            reason,
+            problemDescription,
+            url
+          });
+        }
+
+        const takeoverPromise = requestBrowserTakeover({
+          reason,
+          problemDescription,
+          url
+        });
+
+        this.pendingTakeovers.set(takeoverId, {
+          resolve: (notes) => handBackBrowser(notes)
+        });
+
+        const result = await takeoverPromise;
+        this.pendingTakeovers.delete(takeoverId);
+        return result;
       }
 
       // 2. Workspace File Tools
@@ -455,6 +501,66 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
         }
 
         return { error: 'Provide either DurationSeconds or CronExpression.' };
+      }
+
+      // 8. Universal Dynamic Memory
+      case 'update_memory': {
+        const memoryStore = getMemoryStore();
+        const saved = memoryStore.addFact({
+          key: args?.key,
+          value: args?.value,
+          category: args?.category || 'fact'
+        });
+        return {
+          success: true,
+          savedFact: saved,
+          message: `Saved to universal memory: "${args?.key}"`
+        };
+      }
+
+      case 'recall_memory': {
+        const memoryStore = getMemoryStore();
+        const allMem = memoryStore.getAll();
+        const q = (args?.query || '').toLowerCase().trim();
+        if (!q) return allMem;
+        const filteredFacts = (allMem.learnedFacts || []).filter(f =>
+          f.key.toLowerCase().includes(q) || f.value.toLowerCase().includes(q)
+        );
+        return {
+          profile: allMem.userProfile,
+          matchingFacts: filteredFacts
+        };
+      }
+
+      // 9. AI Skills Framework (Skills Hub)
+      case 'search_skills_hub': {
+        const skillsManager = getSkillsManager();
+        return await skillsManager.searchSkillsHub(args?.query || '');
+      }
+
+      case 'install_skill': {
+        const skillsManager = getSkillsManager();
+        return await skillsManager.installSkill({
+          skillName: args?.skillName,
+          content: args?.content,
+          description: args?.description,
+          sourceUrl: args?.sourceUrl
+        });
+      }
+
+      case 'use_skill': {
+        const skillsManager = getSkillsManager();
+        const res = skillsManager.useSkill(args?.skillName, workspacePath);
+        if (!res.success) {
+          return { error: res.error };
+        }
+        return {
+          success: true,
+          skillName: res.skillName,
+          description: res.description,
+          instructions: res.instructions,
+          message: `Activated skill: "${res.skillName}". Instructions loaded into context.`
+        };
       }
 
       default:

@@ -1083,6 +1083,7 @@ class EyqaApp {
         onToolStart: (ti) => this.chatView.addToolBadge(ti),
         onToolResult: (res) => this.chatView.updateToolResult(res),
         onAskQuestion: (qData) => this.chatView.renderQuestionCard(qData),
+        onBrowserTakeover: (takeoverData) => this.chatView.renderBrowserTakeoverCard(takeoverData),
         onFallback: () => {
           // Silent background failover without disrupting chat
         }
