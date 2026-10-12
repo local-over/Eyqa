@@ -506,7 +506,7 @@ function replaceFileContent(workspaceRoot, {
 }
 
 /**
- * Antigravity-grade File Viewer: view_file
+ * Workspace File Viewer: view_file
  */
 function viewFile(workspaceRoot, {
   AbsolutePath,

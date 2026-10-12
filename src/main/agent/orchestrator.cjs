@@ -2,8 +2,7 @@
  * Eyqa Agent Orchestrator
  * Coordinates multi-turn conversations, live tool execution loops,
  * streaming thought & content tokens, and error handling.
- * 
- * Supports Antigravity-grade tool suite:
+ * Supports full Eyqa Agent tool suite:
  * - Live web search & HTTP fetching
  * - Chromium agentic browser navigation, action, and full page extraction
  * - Sandboxed workspace listing, reading, and full writing

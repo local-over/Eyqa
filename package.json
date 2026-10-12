@@ -1,12 +1,16 @@
 {
   "name": "eyqa",
-  "version": "1.0.0",
-  "description": "Eyqa - The Everyday AI Coworker with Native UI, Multi-Provider Free Tiers, and Instant Web Grounding",
+  "version": "0.9.0-beta",
+  "description": "Eyqa - The Everyday AI Coworker (Early Beta) with Native Monochromatic UI, Multi-Provider Free AI Tiers, and Agentic Workflow Automation",
   "main": "src/main/index.cjs",
   "scripts": {
     "start": "electron .",
     "web": "node src/server.cjs",
-    "test:agent": "node -e \"const { searchWeb } = require('./src/main/agent/tools/web-search.cjs'); searchWeb('test', 1).then(console.log);\""
+    "test:agent": "node -e \"const { searchWeb } = require('./src/main/agent/tools/web-search.cjs'); searchWeb('test', 1).then(console.log);\"",
+    "dist": "electron-builder",
+    "dist:linux": "electron-builder --linux AppImage deb",
+    "dist:mac": "electron-builder --mac dmg zip",
+    "dist:win": "electron-builder --win nsis portable"
   },
   "keywords": [
     "ai",

@@ -1,6 +1,6 @@
 /**
  * Eyqa Base Provider Definitions & Tool Schemas
- * Full suite of Antigravity-grade tools:
+ * Full suite of Eyqa native agent tools:
  * - Web search & HTTP fetch
  * - Chromium agentic browser navigation, action, and full page extraction
  * - Sandboxed workspace listing, reading, and full writing

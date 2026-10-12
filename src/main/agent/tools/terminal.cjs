@@ -1,6 +1,5 @@
 /**
- * Eyqa Terminal & Task Execution Engine
- * Antigravity-grade process execution and task management.
+ * Native terminal process execution and task management.
  * 
  * Features:
  * - Cross-platform shell execution (bash / zsh / sh / cmd / powershell)

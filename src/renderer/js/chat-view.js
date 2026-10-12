@@ -944,7 +944,7 @@ export class ChatView {
   }
 
   _attachMessageEvents() {
-    // Unified Process accordion toggles (Manus & Antigravity spec)
+    // Unified Process & Actions accordion toggles
     this.container.querySelectorAll('.turn-process-header').forEach(btn => {
       btn.onclick = (e) => {
         const wrapper = e.currentTarget.closest('.turn-process-wrapper');

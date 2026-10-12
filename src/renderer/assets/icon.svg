@@ -6,7 +6,7 @@
       <stop offset="100%" stop-color="#141a29" />
     </linearGradient>
     
-    <!-- Convergence Nodes Vibrant Gradient (Inspired by Free Claude Code & Antigravity) -->
+    <!-- Convergence Nodes Vibrant Gradient -->
     <linearGradient id="streamGrad" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#ff7a18" />
       <stop offset="50%" stop-color="#af40ff" />
@@ -55,7 +55,7 @@
     <circle cx="110" cy="364" r="14"/>
   </g>
 
-  <!-- Central Unified Eyqa Agent Core Box (Antigravity & FCC Console) -->
+  <!-- Central Unified Eyqa Agent Core Box -->
   <rect x="330" y="196" width="120" height="120" rx="30" fill="#0d121e" stroke="url(#streamGrad)" stroke-width="22" filter="url(#glow)"/>
   
   <!-- Prompt Chevron / Eye Core -->

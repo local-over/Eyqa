@@ -1334,8 +1334,8 @@ button, input, select, textarea {
   font-size: 12.5px;
 }
 
-/* The Input Capsule (ChatGPT / Claude Floating Island) */
-.antigravity-dock-card {
+/* The Input Capsule (Floating Island) */
+.eyqa-dock-card {
   width: 100%;
   max-width: 768px;
   margin: 0 auto;
@@ -1352,7 +1352,7 @@ button, input, select, textarea {
   position: relative;
 }
 
-.antigravity-dock-card:focus-within {
+.eyqa-dock-card:focus-within {
   border-color: rgba(255, 255, 255, 0.28);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.12);
   transform: translateY(-1px);
@@ -3969,7 +3969,7 @@ textarea.input-text:focus {
 }
 
 /* ============================================================
-   Antigravity Tool UI: Image Cards & Decision Questionnaire
+   Eyqa Agent UI: Image Cards & Decision Questionnaire
    ============================================================ */
 
 .md-image-card {
@@ -4234,7 +4234,7 @@ textarea.input-text:focus {
 }
 
 /* ============================================================
-   UNIFIED PROCESS & ACTIONS ACCORDION (MANUS & ANTIGRAVITY SPEC)
+   UNIFIED PROCESS & ACTIONS ACCORDION
    ============================================================ */
 
 .turn-process-wrapper {
@@ -4554,7 +4554,7 @@ textarea.input-text:focus {
   .app-dock-section {
     padding: 0 12px 12px;
   }
-  .antigravity-dock-card {
+  .eyqa-dock-card {
     padding: 10px 12px 8px 12px;
     border-radius: 18px;
   }
