@@ -10,7 +10,8 @@
     "dist": "electron-builder",
     "dist:linux": "electron-builder --linux AppImage deb",
     "dist:mac": "electron-builder --mac dmg zip",
-    "dist:win": "electron-builder --win nsis portable"
+    "dist:win": "electron-builder --win nsis portable",
+    "export:env": "node scripts/export-env.cjs"
   },
   "keywords": [
     "ai",
