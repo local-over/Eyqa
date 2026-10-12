@@ -284,12 +284,47 @@ export const api = {
     return { success: false };
   },
 
-  // Universal Dynamic Memory
+  // Universal Dynamic Tree Memory
   async getUniversalMemory() {
     if (isElectron && window.eyqaApi.getUniversalMemory) {
       return await window.eyqaApi.getUniversalMemory();
     }
     return { userProfile: {}, learnedFacts: [] };
+  },
+
+  async getMemoryTree() {
+    if (isElectron && window.eyqaApi.getMemoryTree) {
+      return await window.eyqaApi.getMemoryTree();
+    }
+    return { success: false, nodes: [] };
+  },
+
+  async getMemoryFile(filename) {
+    if (isElectron && window.eyqaApi.getMemoryFile) {
+      return await window.eyqaApi.getMemoryFile(filename);
+    }
+    return { success: false };
+  },
+
+  async saveMemoryFile(filename, content) {
+    if (isElectron && window.eyqaApi.saveMemoryFile) {
+      return await window.eyqaApi.saveMemoryFile(filename, content);
+    }
+    return { success: false };
+  },
+
+  async createMemoryNode(name, description = '', parent = 'main.me') {
+    if (isElectron && window.eyqaApi.createMemoryNode) {
+      return await window.eyqaApi.createMemoryNode(name, description, parent);
+    }
+    return { success: false };
+  },
+
+  async deleteMemoryNode(filename) {
+    if (isElectron && window.eyqaApi.deleteMemoryNode) {
+      return await window.eyqaApi.deleteMemoryNode(filename);
+    }
+    return { success: false };
   },
 
   async updateUniversalProfile(profile) {

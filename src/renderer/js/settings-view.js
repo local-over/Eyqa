@@ -175,8 +175,10 @@ export class SettingsView {
 
     try {
       this.universalMemory = await api.getUniversalMemory();
+      this.memoryTree = await api.getMemoryTree();
     } catch (_) {
       this.universalMemory = { userProfile: {}, learnedFacts: [] };
+      this.memoryTree = { nodes: [] };
     }
 
     try {
@@ -1178,89 +1180,193 @@ export class SettingsView {
   /**
    * Tab: Universal Dynamic Memory
    */
+  /**
+   * Tab: Universal Dynamic Tree Memory (~/.config/eyqa/memory/)
+   */
   _renderMemoryTab() {
-    const mem = this.universalMemory || { userProfile: {}, learnedFacts: [] };
-    const profile = mem.userProfile || {};
-    const facts = mem.learnedFacts || [];
+    const tree = this.memoryTree || { nodes: [] };
+    const nodes = tree.nodes || [];
+    const rootNode = nodes.find(n => n.isRoot || n.filename === 'main.me') || {
+      filename: 'main.me',
+      title: 'Root Memory (Essential Context)',
+      lineCount: 0,
+      wordCount: 0,
+      content: ''
+    };
+    const childNodes = nodes.filter(n => n.filename !== 'main.me');
 
     return `
-      <!-- User Profile & Context -->
+      <!-- Universal Tree Memory Header -->
       <div class="settings-section-card">
-        <div class="section-card-title">User Profile & Work Context</div>
-        <div class="section-card-desc">Information Eyqa remembers about you universally across all projects.</div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 14px;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
           <div>
-            <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Your Name / Preferred Nickname</label>
-            <input type="text" class="input-text" id="memUserName" value="${this._escape(profile.name || '')}" placeholder="e.g. Hassan" style="width: 100%;" />
+            <div class="section-card-title" style="display: flex; align-items: center; gap: 8px;">
+              <span>Universal Tree Memory</span>
+              <span style="font-size: 11px; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 8px; font-weight: normal; color: var(--text-secondary); font-family: var(--font-mono);">~/.config/eyqa/memory/</span>
+            </div>
+            <div class="section-card-desc" style="margin-top: 4px;">
+              Modular <code>.me</code> memory tree with hard limits (max 40 lines / 300 words per file) managed systematically by the background Memory Agent.
+            </div>
           </div>
-          <div>
-            <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Your Role / Occupation</label>
-            <input type="text" class="input-text" id="memUserRole" value="${this._escape(profile.roleOrTitle || '')}" placeholder="e.g. Software Engineer & Product Designer" style="width: 100%;" />
-          </div>
-        </div>
-
-        <div style="margin-top: 14px;">
-          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Preferred Communication Tone</label>
-          <input type="text" class="input-text" id="memUserTone" value="${this._escape(profile.preferredTone || 'natural, sharp, concise')}" placeholder="e.g. natural, sharp, concise (no AI slop)" style="width: 100%;" />
-        </div>
-
-        <div style="margin-top: 14px;">
-          <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 6px;">Global Directives & Habits</label>
-          <textarea class="input-text" id="memUserDirectives" rows="2" placeholder="e.g. Prefer TypeScript; format summaries as bullet points; always cite sources." style="width: 100%;">${this._escape(profile.customDirectives || '')}</textarea>
-        </div>
-
-        <div style="margin-top: 14px; display: flex; justify-content: flex-end;">
-          <button class="primary-btn btn-save-memory-profile">
-            ${icons.check} Save User Profile
+          <button class="primary-btn btn-open-create-node" style="padding: 6px 14px; font-size: 12px; white-space: nowrap;">
+            + Add Branch Node
           </button>
+        </div>
+
+        <!-- Budget & Architecture Badges -->
+        <div style="display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap;">
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 6px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: #4ade80;">●</span>
+            <span style="color: #fff; font-weight: 500;">Hard Budget:</span>
+            <span style="color: var(--text-secondary);">40 lines & 300 words / node</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 6px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: #60a5fa;">●</span>
+            <span style="color: #fff; font-weight: 500;">Active Tree:</span>
+            <span style="color: var(--text-secondary);">${nodes.length} .me files</span>
+          </div>
+          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 6px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
+            <span style="color: #a78bfa;">●</span>
+            <span style="color: #fff; font-weight: 500;">Custodian:</span>
+            <span style="color: var(--text-secondary);">Semi-background Memory Agent</span>
+          </div>
         </div>
       </div>
 
-      <!-- Dynamic Learned Facts -->
-      <div class="settings-section-card">
+      <!-- Root Node Card (main.me) -->
+      <div class="settings-section-card" style="border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.02);">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div>
-            <div class="section-card-title">Dynamic Learned Facts & Rules</div>
-            <div class="section-card-desc">Facts Eyqa has learned during conversations or that you manually defined.</div>
-          </div>
-          <span style="font-size: 12px; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 12px;">${facts.length} Memories</span>
-        </div>
-
-        <!-- Add Memory Fact Form -->
-        <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; margin-top: 14px;">
-          <div style="font-size: 12.5px; font-weight: 600; margin-bottom: 10px; color: #fff;">+ Add New Memory Fact</div>
-          <div style="display: grid; grid-template-columns: 140px 180px 1fr auto; gap: 10px; align-items: center;">
-            <select class="input-text" id="newFactCategory" style="padding: 6px 10px;">
-              <option value="fact">Fact</option>
-              <option value="preference">Preference</option>
-              <option value="instruction">Instruction</option>
-              <option value="work_context">Work Context</option>
-            </select>
-            <input type="text" class="input-text" id="newFactKey" placeholder="Concept / Key (e.g. Stack)" />
-            <input type="text" class="input-text" id="newFactValue" placeholder="Detail to remember permanently..." />
-            <button class="secondary-btn btn-add-memory-fact" style="background: #ffffff; color: #000; font-weight: 600;">Add</button>
-          </div>
-        </div>
-
-        <!-- Facts List -->
-        <div class="memory-facts-list" style="margin-top: 14px; display: flex; flex-direction: column; gap: 8px;">
-          ${facts.length === 0 ? `
-            <div style="padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px;">
-              No memories recorded yet. Eyqa will dynamically remember facts as you chat, or you can add them above.
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <div style="width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-size: 14px;">🌳</div>
+            <div>
+              <div style="font-size: 14px; font-weight: 600; color: #fff;">main.me <span style="font-size: 11px; background: rgba(255,255,255,0.1); padding: 2px 7px; border-radius: 6px; color: #a1a1aa; margin-left: 6px;">Root Context</span></div>
+              <div style="font-size: 11.5px; color: var(--text-secondary);">Injected directly into every turn's system prompt (User identity, role, and index links).</div>
             </div>
-          ` : facts.map(f => `
-            <div class="memory-fact-item" style="display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 10px;">
-              <div style="display: flex; align-items: center; gap: 12px; flex: 1;">
-                <span style="font-size: 10.5px; text-transform: uppercase; letter-spacing: 0.5px; background: rgba(255,255,255,0.08); color: var(--text-secondary); padding: 3px 8px; border-radius: 6px; font-weight: 600;">${this._escape(f.category || 'fact')}</span>
-                <strong style="font-size: 13px; color: #fff;">${this._escape(f.key)}:</strong>
-                <span style="font-size: 13px; color: var(--text-secondary);">${this._escape(f.value)}</span>
+          </div>
+          <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 6px;">
+              ${rootNode.lineCount}/40 lines • ${rootNode.wordCount}/300 words
+            </span>
+            <button class="secondary-btn btn-edit-memory-node" data-file="main.me" style="padding: 4px 12px; font-size: 12px;">
+              Edit main.me
+            </button>
+          </div>
+        </div>
+
+        <!-- Links from main.me to child branches -->
+        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
+          <div style="font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">Linked Sub-Branches in main.me:</div>
+          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
+            ${(rootNode.links || []).map(l => `
+              <span class="memory-link-pill" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 4px 10px; font-size: 12px; color: #e4e4e7;">
+                <span style="color: #60a5fa;">↳</span>
+                <strong>${this._escape(l.target)}</strong>
+                ${l.description ? `<span style="color: var(--text-secondary); font-size: 11px;">(${this._escape(l.description)})</span>` : ''}
+              </span>
+            `).join('')}
+          </div>
+        </div>
+      </div>
+
+      <!-- Tree Branches Visual Deck -->
+      <div class="settings-section-card">
+        <div class="section-card-title">Memory Tree Branches</div>
+        <div class="section-card-desc">Specialized domain nodes consulted by the Memory Agent when deeper facts are recalled.</div>
+
+        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin-top: 16px;">
+          ${childNodes.map(n => {
+            const linePercent = Math.min(100, Math.round((n.lineCount / 40) * 100));
+            const barColor = linePercent > 85 ? '#ef4444' : linePercent > 60 ? '#f59e0b' : '#10b981';
+            return `
+              <div class="memory-node-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+                    <div>
+                      <strong style="color: #fff; font-size: 13.5px;">${this._escape(n.title)}</strong>
+                      <div style="font-size: 11px; font-family: var(--font-mono); color: #60a5fa; margin-top: 2px;">${this._escape(n.filename)}</div>
+                    </div>
+                    <span style="font-size: 10.5px; background: rgba(255,255,255,0.06); padding: 2px 7px; border-radius: 6px; color: var(--text-secondary);">↳ ${this._escape(n.parent || 'main.me')}</span>
+                  </div>
+
+                  <!-- Budget Bar -->
+                  <div style="margin: 10px 0;">
+                    <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-secondary); margin-bottom: 4px;">
+                      <span>Budget: ${n.lineCount}/40 lines</span>
+                      <span>${n.wordCount}/300 words</span>
+                    </div>
+                    <div style="height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;">
+                      <div style="width: ${linePercent}%; height: 100%; background: ${barColor};"></div>
+                    </div>
+                  </div>
+
+                  <!-- Preview of content -->
+                  <div style="font-size: 11.5px; color: var(--text-secondary); font-family: var(--font-mono); background: rgba(0,0,0,0.25); border-radius: 6px; padding: 8px; margin-top: 8px; max-height: 60px; overflow: hidden; line-height: 1.4;">
+                    ${this._escape((n.content || '').split('\n').slice(0, 3).join('\n'))}
+                  </div>
+                </div>
+
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04);">
+                  <button class="secondary-btn btn-edit-memory-node" data-file="${this._escape(n.filename)}" style="padding: 4px 10px; font-size: 11.5px;">
+                    View & Edit
+                  </button>
+                  <button class="icon-btn btn-delete-memory-node" data-file="${this._escape(n.filename)}" title="Delete node" style="color: #ef4444; opacity: 0.7; cursor: pointer;">
+                    ${icons.trash}
+                  </button>
+                </div>
               </div>
-              <button class="icon-btn btn-delete-fact" data-id="${f.id}" title="Delete memory" style="color: #ef4444; opacity: 0.7; cursor: pointer;">
-                ${icons.trash}
-              </button>
+            `;
+          }).join('')}
+        </div>
+      </div>
+
+      <!-- Node Editor Modal (Hidden by default) -->
+      <div id="memoryNodeEditorModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #141414; border: 1px solid var(--border-medium); border-radius: 14px; width: 100%; max-width: 680px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
+          <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
+            <div>
+              <strong id="editorNodeFilename" style="color: #fff; font-size: 15px;">node.me</strong>
+              <div id="editorNodeBudget" style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">0/40 lines • 0/300 words</div>
             </div>
-          `).join('')}
+            <button id="btnCloseNodeEditor" class="topbar-icon-btn" style="cursor: pointer;">✕</button>
+          </div>
+          <div style="padding: 16px 20px;">
+            <textarea id="editorNodeContent" style="width: 100%; height: 320px; background: #0a0a0a; border: 1px solid var(--border-subtle); border-radius: 8px; color: #e4e4e7; font-family: var(--font-mono); font-size: 12.5px; padding: 12px; resize: vertical; outline: none; line-height: 1.5; box-sizing: border-box;"></textarea>
+          </div>
+          <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border-subtle); background: #111;">
+            <button id="btnCancelNodeEditor" class="secondary-btn" style="padding: 6px 14px;">Cancel</button>
+            <button id="btnSaveNodeEditor" class="primary-btn" style="padding: 6px 18px;">Save Node</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Create New Branch Modal (Hidden by default) -->
+      <div id="memoryNewNodeModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
+        <div style="background: #141414; border: 1px solid var(--border-medium); border-radius: 14px; width: 100%; max-width: 480px; padding: 20px; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
+          <div style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 4px;">+ Add New Memory Branch</div>
+          <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;">Creates a new specialized .me file linked into the memory tree.</div>
+
+          <div style="display: flex; flex-direction: column; gap: 12px;">
+            <div>
+              <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Branch Name (e.g. database, coding-style, habits)</label>
+              <input type="text" id="newNodeNameInput" class="input-text" placeholder="branch-name" style="width: 100%;" />
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Description / Scope</label>
+              <input type="text" id="newNodeDescInput" class="input-text" placeholder="Summary of what this node stores" style="width: 100%;" />
+            </div>
+            <div>
+              <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Parent Link</label>
+              <select id="newNodeParentSelect" class="input-text" style="width: 100%;">
+                <option value="main.me">main.me (Root)</option>
+                ${childNodes.map(n => `<option value="${this._escape(n.filename)}">${this._escape(n.filename)}</option>`).join('')}
+              </select>
+            </div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
+            <button id="btnCancelNewNode" class="secondary-btn" style="padding: 6px 14px;">Cancel</button>
+            <button id="btnConfirmCreateNode" class="primary-btn" style="padding: 6px 18px;">Create Node</button>
+          </div>
         </div>
       </div>
     `;
@@ -1701,48 +1807,134 @@ export class SettingsView {
       }
     });
 
-    // --- Dynamic Memory Tab Events ---
-    this.container.querySelector('.btn-save-memory-profile')?.addEventListener('click', async () => {
-      const name = this.container.querySelector('#memUserName')?.value?.trim();
-      const role = this.container.querySelector('#memUserRole')?.value?.trim();
-      const tone = this.container.querySelector('#memUserTone')?.value?.trim();
-      const directives = this.container.querySelector('#memUserDirectives')?.value?.trim();
-
-      await api.updateUniversalProfile({
-        name,
-        roleOrTitle: role,
-        preferredTone: tone,
-        customDirectives: directives
-      });
-      this.universalMemory = await api.getUniversalMemory();
-      if (this.onNotification) this.onNotification('Universal Profile saved to Dynamic Memory.', 'success');
-      this.render();
+    // --- Universal Dynamic Tree Memory Tab Events ---
+    // 1. Open New Node Modal
+    this.container.querySelector('.btn-open-create-node')?.addEventListener('click', () => {
+      const modal = this.container.querySelector('#memoryNewNodeModal');
+      const nameInput = this.container.querySelector('#newNodeNameInput');
+      const descInput = this.container.querySelector('#newNodeDescInput');
+      if (nameInput) nameInput.value = '';
+      if (descInput) descInput.value = '';
+      if (modal) modal.style.display = 'flex';
+      nameInput?.focus();
     });
 
-    this.container.querySelector('.btn-add-memory-fact')?.addEventListener('click', async () => {
-      const key = this.container.querySelector('#newFactKey')?.value?.trim();
-      const value = this.container.querySelector('#newFactValue')?.value?.trim();
-      const category = this.container.querySelector('#newFactCategory')?.value;
+    // 2. Cancel New Node
+    this.container.querySelector('#btnCancelNewNode')?.addEventListener('click', () => {
+      const modal = this.container.querySelector('#memoryNewNodeModal');
+      if (modal) modal.style.display = 'none';
+    });
 
-      if (!key || !value) {
-        if (this.onNotification) this.onNotification('Key and detail value are required.', 'error');
+    // 3. Confirm Create Node
+    this.container.querySelector('#btnConfirmCreateNode')?.addEventListener('click', async () => {
+      const name = this.container.querySelector('#newNodeNameInput')?.value?.trim();
+      const desc = this.container.querySelector('#newNodeDescInput')?.value?.trim() || '';
+      const parent = this.container.querySelector('#newNodeParentSelect')?.value || 'main.me';
+
+      if (!name) {
+        if (this.onNotification) this.onNotification('Node name is required.', 'error');
         return;
       }
 
-      await api.addUniversalFact({ key, value, category });
-      this.universalMemory = await api.getUniversalMemory();
-      if (this.onNotification) this.onNotification(`Learned Fact "${key}" added to memory.`, 'success');
-      this.render();
+      const res = await api.createMemoryNode(name, desc, parent);
+      if (res && res.success) {
+        this.memoryTree = await api.getMemoryTree();
+        if (this.onNotification) this.onNotification(`Memory node "${res.filename}" created.`, 'success');
+        this.render();
+      } else {
+        if (this.onNotification) this.onNotification(res?.error || 'Failed to create memory node.', 'error');
+      }
     });
 
-    this.container.querySelectorAll('.btn-delete-fact').forEach(btn => {
+    // Helper for budget calculation
+    const updateEditorBudget = (text) => {
+      const budgetEl = this.container.querySelector('#editorNodeBudget');
+      if (!budgetEl) return;
+      const lines = text.split('\n').length;
+      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+      const isOver = lines > 40 || words > 300;
+      budgetEl.innerHTML = `<span style="color: ${isOver ? '#ef4444' : '#a1a1aa'}; font-weight: ${isOver ? 'bold' : 'normal'};">${lines}/40 lines • ${words}/300 words ${isOver ? '(Budget Exceeded!)' : ''}</span>`;
+    };
+
+    // 4. Open Node Editor
+    this.container.querySelectorAll('.btn-edit-memory-node').forEach(btn => {
       btn.addEventListener('click', async (e) => {
-        const id = e.currentTarget.dataset.id;
-        if (id) {
-          await api.deleteUniversalFact(id);
-          this.universalMemory = await api.getUniversalMemory();
-          if (this.onNotification) this.onNotification('Fact removed from memory.', 'info');
-          this.render();
+        const filename = e.currentTarget.dataset.file;
+        if (!filename) return;
+
+        const res = await api.getMemoryFile(filename);
+        if (!res || !res.success) {
+          if (this.onNotification) this.onNotification(res?.error || 'Failed to load memory file.', 'error');
+          return;
+        }
+
+        const modal = this.container.querySelector('#memoryNodeEditorModal');
+        const filenameEl = this.container.querySelector('#editorNodeFilename');
+        const contentEl = this.container.querySelector('#editorNodeContent');
+
+        if (filenameEl) filenameEl.textContent = filename;
+        if (contentEl) {
+          contentEl.value = res.content || '';
+          updateEditorBudget(contentEl.value);
+        }
+        if (modal) modal.style.display = 'flex';
+      });
+    });
+
+    // Content change updates budget live
+    this.container.querySelector('#editorNodeContent')?.addEventListener('input', (e) => {
+      updateEditorBudget(e.target.value);
+    });
+
+    // 5. Close / Cancel Node Editor
+    const closeEditor = () => {
+      const modal = this.container.querySelector('#memoryNodeEditorModal');
+      if (modal) modal.style.display = 'none';
+    };
+    this.container.querySelector('#btnCloseNodeEditor')?.addEventListener('click', closeEditor);
+    this.container.querySelector('#btnCancelNodeEditor')?.addEventListener('click', closeEditor);
+
+    // 6. Save Node
+    this.container.querySelector('#btnSaveNodeEditor')?.addEventListener('click', async () => {
+      const filename = this.container.querySelector('#editorNodeFilename')?.textContent?.trim();
+      const content = this.container.querySelector('#editorNodeContent')?.value;
+
+      if (!filename) return;
+
+      const lines = content.split('\n').length;
+      const words = content.trim() ? content.trim().split(/\s+/).length : 0;
+      if (lines > 40 || words > 300) {
+        if (!confirm(`Warning: This node exceeds the budget (${lines}/40 lines, ${words}/300 words). High token usage may result. Save anyway?`)) {
+          return;
+        }
+      }
+
+      const res = await api.saveMemoryFile(filename, content);
+      if (res && res.success) {
+        this.memoryTree = await api.getMemoryTree();
+        if (this.onNotification) this.onNotification(`Saved "${filename}" to Universal Tree Memory.`, 'success');
+        closeEditor();
+        this.render();
+      } else {
+        if (this.onNotification) this.onNotification(res?.error || 'Failed to save node.', 'error');
+      }
+    });
+
+    // 7. Delete Node
+    this.container.querySelectorAll('.btn-delete-memory-node').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const filename = e.currentTarget.dataset.file;
+        if (!filename) return;
+
+        if (confirm(`Are you sure you want to delete branch node "${filename}"? Any facts in this branch will be permanently removed.`)) {
+          const res = await api.deleteMemoryNode(filename);
+          if (res && res.success) {
+            this.memoryTree = await api.getMemoryTree();
+            if (this.onNotification) this.onNotification(`Memory branch "${filename}" deleted.`, 'info');
+            this.render();
+          } else {
+            if (this.onNotification) this.onNotification(res?.error || 'Failed to delete node.', 'error');
+          }
         }
       });
     });

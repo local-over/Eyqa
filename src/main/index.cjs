@@ -346,9 +346,29 @@ function setupIpcHandlers() {
     return orchestrator.resolveBrowserTakeover(takeoverId, notes);
   });
 
-  // Universal Dynamic Memory IPC
+  // Universal Dynamic Tree Memory IPC
   ipcMain.handle('memory:getAll', () => {
     return getMemoryStore().getAll();
+  });
+
+  ipcMain.handle('memory:getTree', () => {
+    return getMemoryStore().getTree();
+  });
+
+  ipcMain.handle('memory:getFile', (_, filename) => {
+    return getMemoryStore().getFile(filename);
+  });
+
+  ipcMain.handle('memory:saveFile', (_, filename, content) => {
+    return getMemoryStore().saveFile(filename, content);
+  });
+
+  ipcMain.handle('memory:createNode', (_, name, description, parent) => {
+    return getMemoryStore().createNode(name, description, parent);
+  });
+
+  ipcMain.handle('memory:deleteNode', (_, filename) => {
+    return getMemoryStore().deleteNode(filename);
   });
 
   ipcMain.handle('memory:updateProfile', (_, profile) => {

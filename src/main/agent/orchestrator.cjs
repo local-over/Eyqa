@@ -38,6 +38,7 @@ const {
 const { runCommand, manageTask } = require('./tools/terminal.cjs');
 const { generateImage } = require('./tools/image-gen.cjs');
 const { getMemoryStore } = require('../storage/memory-store.cjs');
+const { getMemoryAgent } = require('./memory-agent.cjs');
 const { getSkillsManager } = require('./tools/skills.cjs');
 
 class AgentOrchestrator {
@@ -507,33 +508,24 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
         return { error: 'Provide either DurationSeconds or CronExpression.' };
       }
 
-      // 8. Universal Dynamic Memory
+      // 8. Universal Tree Memory (Semi-Background Memory Agent)
       case 'update_memory': {
-        const memoryStore = getMemoryStore();
-        const saved = memoryStore.addFact({
+        const memoryAgent = getMemoryAgent();
+        return await memoryAgent.saveMemory({
+          topic: args?.topic || args?.key,
+          information: args?.information || args?.value,
+          category: args?.category || 'fact',
           key: args?.key,
-          value: args?.value,
-          category: args?.category || 'fact'
+          value: args?.value
         });
-        return {
-          success: true,
-          savedFact: saved,
-          message: `Saved to universal memory: "${args?.key}"`
-        };
       }
 
       case 'recall_memory': {
-        const memoryStore = getMemoryStore();
-        const allMem = memoryStore.getAll();
-        const q = (args?.query || '').toLowerCase().trim();
-        if (!q) return allMem;
-        const filteredFacts = (allMem.learnedFacts || []).filter(f =>
-          f.key.toLowerCase().includes(q) || f.value.toLowerCase().includes(q)
-        );
-        return {
-          profile: allMem.userProfile,
-          matchingFacts: filteredFacts
-        };
+        const memoryAgent = getMemoryAgent();
+        return await memoryAgent.queryMemory({
+          query: args?.query,
+          topic: args?.topic
+        });
       }
 
       // 9. AI Skills Framework (Skills Hub)

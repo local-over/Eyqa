@@ -1,175 +1,125 @@
 /**
- * Eyqa Universal Dynamic Memory Store
- * Persists user habits, preferences, facts, and workflow context
- * across all projects and chats in ~/.config/eyqa/universal_memory.json.
+ * Eyqa Universal Memory Store Adapter
+ * Bridges the legacy API surface to the TreeMemoryStore architecture
+ * and MemoryAgent semi-background custodian.
  */
 
-const fs = require('node:fs');
-const path = require('node:path');
-const os = require('node:os');
-const crypto = require('node:crypto');
-
-const DEFAULT_MEMORY = {
-  version: 1,
-  userProfile: {
-    name: '',
-    roleOrTitle: '',
-    preferredTone: 'natural, sharp, concise',
-    customDirectives: ''
-  },
-  learnedFacts: [
-    {
-      id: 'fact-1',
-      key: 'Communication Style',
-      value: 'Prefers direct, fact-checked, concise answers. Hate AI slop, fluff, and unnecessary boilerplate.',
-      category: 'preference',
-      updatedAt: new Date().toISOString()
-    },
-    {
-      id: 'fact-2',
-      key: 'Search Synthesis Rule',
-      value: 'Always re-read user question before drafting search answers. Never dump raw search snippets.',
-      category: 'instruction',
-      updatedAt: new Date().toISOString()
-    }
-  ]
-};
+const { getTreeMemoryStore } = require('./tree-memory-store.cjs');
+const { getMemoryAgent } = require('../agent/memory-agent.cjs');
 
 class UniversalMemoryStore {
-  constructor(customPath = null) {
-    const configDir = customPath || path.join(
-      process.env.XDG_CONFIG_HOME || path.join(os.homedir(), '.config'),
-      'eyqa'
-    );
-    this.filePath = path.join(configDir, 'universal_memory.json');
-    this.data = null;
-    this.init();
+  constructor() {
+    this.treeStore = getTreeMemoryStore();
+    this.agent = getMemoryAgent();
   }
 
-  init() {
-    try {
-      const dir = path.dirname(this.filePath);
-      if (!fs.existsSync(dir)) {
-        fs.mkdirSync(dir, { recursive: true });
-      }
-
-      if (fs.existsSync(this.filePath)) {
-        const raw = fs.readFileSync(this.filePath, 'utf8');
-        const parsed = JSON.parse(raw);
-        this.data = {
-          version: parsed.version || 1,
-          userProfile: { ...DEFAULT_MEMORY.userProfile, ...(parsed.userProfile || {}) },
-          learnedFacts: Array.isArray(parsed.learnedFacts) ? parsed.learnedFacts : DEFAULT_MEMORY.learnedFacts
-        };
-      } else {
-        this.data = JSON.parse(JSON.stringify(DEFAULT_MEMORY));
-        this.save();
-      }
-    } catch (err) {
-      console.error('[MemoryStore] Failed to load memory:', err);
-      this.data = JSON.parse(JSON.stringify(DEFAULT_MEMORY));
-    }
+  getTree() {
+    return this.treeStore.getTree();
   }
 
-  save() {
-    try {
-      fs.writeFileSync(this.filePath, JSON.stringify(this.data, null, 2), 'utf8');
-      return true;
-    } catch (err) {
-      console.error('[MemoryStore] Failed to write memory:', err);
-      return false;
+  getFile(filename) {
+    return this.treeStore.getFile(filename);
+  }
+
+  saveFile(filename, content) {
+    return this.treeStore.saveFile(filename, content);
+  }
+
+  createNode(name, description, parent) {
+    return this.treeStore.createNode(name, description, parent);
+  }
+
+  deleteNode(filename) {
+    return this.treeStore.deleteNode(filename);
+  }
+
+  getSystemPromptSnippet() {
+    return this.treeStore.getMainMemorySnippet();
+  }
+
+  async addFact({ key, value, category = 'fact' }) {
+    return await this.agent.saveMemory({ topic: key, information: value, category });
+  }
+
+  async updateProfile(profile) {
+    const mainRes = this.treeStore.getFile('main.me');
+    if (!mainRes.success) return profile;
+
+    let content = mainRes.content;
+    if (profile.name !== undefined) {
+      content = content.replace(/User:\s*.*/, `User: ${profile.name}`);
     }
+    if (profile.roleOrTitle !== undefined) {
+      content = content.replace(/Role:\s*.*/, `Role: ${profile.roleOrTitle}`);
+    }
+    if (profile.preferredTone !== undefined) {
+      content = content.replace(/Tone:\s*.*/, `Tone: ${profile.preferredTone}`);
+    }
+    if (profile.customDirectives !== undefined) {
+      content = content.replace(/## Global Directives & Workflow Habits[\s\S]*?(?=##|$)/, `## Global Directives & Workflow Habits\n${profile.customDirectives}\n\n`);
+    }
+
+    this.treeStore.saveFile('main.me', content);
+    return profile;
   }
 
   getAll() {
-    return this.data;
-  }
+    const tree = this.treeStore.getTree();
+    const mainRes = this.treeStore.getFile('main.me');
+    const content = mainRes.content || '';
 
-  getLearnedFacts() {
-    return this.data.learnedFacts || [];
-  }
+    const nameMatch = content.match(/User:\s*(.*)/i);
+    const roleMatch = content.match(/Role:\s*(.*)/i);
+    const toneMatch = content.match(/Tone:\s*(.*)/i);
 
-  updateProfile(profileData) {
-    if (!this.data.userProfile) this.data.userProfile = {};
-    Object.assign(this.data.userProfile, profileData);
-    this.save();
-    return this.data.userProfile;
-  }
+    const facts = [];
+    (tree.nodes || []).forEach(node => {
+      if (node.filename === 'main.me') return;
+      const lines = (node.content || '').split('\n');
+      lines.forEach((line, idx) => {
+        const trimmed = line.trim();
+        if (trimmed.startsWith('-')) {
+          facts.push({
+            id: `${node.filename}_${idx}`,
+            node: node.filename,
+            category: node.filename.replace('.me', ''),
+            key: node.title,
+            value: trimmed.replace(/^-\s*/, '')
+          });
+        }
+      });
+    });
 
-  addFact({ key, value, category = 'fact' }) {
-    if (!key || !value) return null;
-    const existing = this.data.learnedFacts.find(
-      f => f.key.toLowerCase().trim() === key.toLowerCase().trim()
-    );
-
-    if (existing) {
-      existing.value = value;
-      existing.category = category;
-      existing.updatedAt = new Date().toISOString();
-      this.save();
-      return existing;
-    }
-
-    const newFact = {
-      id: `fact-${crypto.randomBytes(4).toString('hex')}`,
-      key: key.trim(),
-      value: value.trim(),
-      category: category.trim(),
-      updatedAt: new Date().toISOString()
+    return {
+      version: 2,
+      format: 'tree',
+      memoryDir: tree.memoryDir,
+      tree,
+      userProfile: {
+        name: nameMatch ? nameMatch[1].trim() : '',
+        roleOrTitle: roleMatch ? roleMatch[1].trim() : '',
+        preferredTone: toneMatch ? toneMatch[1].trim() : 'natural, sharp, concise'
+      },
+      learnedFacts: facts
     };
-
-    this.data.learnedFacts.push(newFact);
-    this.save();
-    return newFact;
-  }
-
-  getFact(id) {
-    return this.data.learnedFacts.find(f => f.id === id) || null;
-  }
-
-  updateFact(id, { key, value, category }) {
-    const item = this.data.learnedFacts.find(f => f.id === id);
-    if (!item) return false;
-    if (key !== undefined) item.key = key.trim();
-    if (value !== undefined) item.value = value.trim();
-    if (category !== undefined) item.category = category.trim();
-    item.updatedAt = new Date().toISOString();
-    this.save();
-    return item;
   }
 
   deleteFact(id) {
-    const initialLen = this.data.learnedFacts.length;
-    this.data.learnedFacts = this.data.learnedFacts.filter(f => f.id !== id);
-    if (this.data.learnedFacts.length !== initialLen) {
-      this.save();
+    if (!id) return false;
+    const parts = id.split('_');
+    const nodeFile = parts[0];
+    const lineIdx = parseInt(parts[1], 10);
+
+    const fileRes = this.treeStore.getFile(nodeFile);
+    if (!fileRes.success) return false;
+
+    const lines = fileRes.content.split('\n');
+    if (lineIdx >= 0 && lineIdx < lines.length) {
+      lines.splice(lineIdx, 1);
+      this.treeStore.saveFile(nodeFile, lines.join('\n'));
       return true;
     }
     return false;
-  }
-
-  /**
-   * Generates a compact system prompt injection block
-   */
-  getSystemPromptSnippet() {
-    const profile = this.data.userProfile || {};
-    const facts = this.data.learnedFacts || [];
-
-    let snippet = '=== UNIVERSAL DYNAMIC MEMORY (Cross-Project Context) ===\n';
-    if (profile.name) snippet += `User Name: ${profile.name}\n`;
-    if (profile.roleOrTitle) snippet += `User Role/Context: ${profile.roleOrTitle}\n`;
-    if (profile.preferredTone) snippet += `Tone Preference: ${profile.preferredTone}\n`;
-    if (profile.customDirectives) snippet += `Directives: ${profile.customDirectives}\n`;
-
-    if (facts.length > 0) {
-      snippet += 'Learned Facts & Preferences:\n';
-      facts.forEach(f => {
-        snippet += `- [${f.category.toUpperCase()}] ${f.key}: ${f.value}\n`;
-      });
-    }
-
-    snippet += '=======================================================';
-    return snippet;
   }
 }
 

@@ -496,25 +496,25 @@ const MEMORY_SCHEMAS = [
     type: 'function',
     function: {
       name: 'update_memory',
-      description: 'Dynamically store or update a persistent memory or learned fact about the user, their preferences, project domain, or work habits. Persists universally across all projects and chats.',
+      description: 'Systematically save or update user facts, habits, tech stack, or context into the universal tree memory (~/.config/eyqa/memory/). Managed by the semi-background memory agent.',
       parameters: {
         type: 'object',
         properties: {
-          key: {
+          topic: {
             type: 'string',
-            description: 'Short concept title (e.g. "User Role", "Coding Preferences", "Project Domain", "Preferred Tone").'
+            description: 'Topic or branch name (e.g. "tech-stack", "preferences", "projects", "identity").'
           },
-          value: {
+          information: {
             type: 'string',
-            description: 'The specific fact, instruction, or preference to remember permanently.'
+            description: 'The specific fact, habit, or instruction to record permanently.'
           },
           category: {
             type: 'string',
             enum: ['preference', 'fact', 'instruction', 'work_context'],
-            description: 'Category for memory organization.'
+            description: 'Memory classification.'
           }
         },
-        required: ['key', 'value']
+        required: ['topic', 'information']
       }
     }
   },
@@ -522,13 +522,17 @@ const MEMORY_SCHEMAS = [
     type: 'function',
     function: {
       name: 'recall_memory',
-      description: 'Search or view universal persistent memories and user preferences.',
+      description: 'Query the universal tree memory (~/.config/eyqa/memory/) to pull deep context, preferences, or domain knowledge not present in root main.me.',
       parameters: {
         type: 'object',
         properties: {
           query: {
             type: 'string',
-            description: 'Optional keyword to filter remembered facts.'
+            description: 'Keyword or question to look up in the memory tree (e.g. "rust preferences", "active projects").'
+          },
+          topic: {
+            type: 'string',
+            description: 'Optional specific memory branch or node name (e.g. "tech-stack.me").'
           }
         }
       }
