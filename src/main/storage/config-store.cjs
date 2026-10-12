@@ -810,6 +810,7 @@ class ConfigStore {
             if (targetProviderId && this.config.providers[targetProviderId]) {
               this.config.providers[targetProviderId].apiKey = val;
               this.config.providers[targetProviderId].enabled = true;
+              this.config.hasCompletedWizard = true;
             }
           }
         }
