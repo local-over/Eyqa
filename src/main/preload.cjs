@@ -60,7 +60,7 @@ contextBridge.exposeInMainWorld('eyqaApi', {
 
   // Agent Streaming Execution
   startTurn: (turnPayload) => ipcRenderer.invoke('agent:startTurn', turnPayload),
-  stopTurn: () => ipcRenderer.invoke('agent:stopTurn'),
+  stopTurn: (sessionId = null) => ipcRenderer.invoke('agent:stopTurn', sessionId),
 
   // Stream Event Listeners
   onStreamToken: (callback) => {

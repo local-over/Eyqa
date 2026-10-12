@@ -405,8 +405,8 @@ export const api = {
     }
   },
 
-  async stopTurn() {
-    if (isElectron) return await window.eyqaApi.stopTurn();
+  async stopTurn(sessionId = null) {
+    if (isElectron) return await window.eyqaApi.stopTurn(sessionId);
     return false;
   },
 

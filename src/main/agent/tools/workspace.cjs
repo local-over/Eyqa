@@ -124,11 +124,39 @@ function recordChangelogEntry(workspaceRoot, relPath, action = 'edit', summary =
   }
 }
 
+function computeSimpleDiff(oldText, newText) {
+  if (oldText === newText) return '';
+  const oldLines = (oldText || '').split('\n');
+  const newLines = (newText || '').split('\n');
+  const diffLines = [];
+  let diffCount = 0;
+  for (let i = 0; i < Math.max(oldLines.length, newLines.length); i++) {
+    const o = oldLines[i];
+    const n = newLines[i];
+    if (o !== n) {
+      if (o !== undefined) {
+        diffLines.push(`- ${o}`);
+        diffCount++;
+      }
+      if (n !== undefined) {
+        diffLines.push(`+ ${n}`);
+        diffCount++;
+      }
+    }
+    if (diffCount > 150) {
+      diffLines.push('... [diff truncated]');
+      break;
+    }
+  }
+  return diffLines.join('\n');
+}
+
 function createSnapshot(workspaceRoot, relPath, previousContent, newContent, messageSummary = 'File Update') {
   try {
     const snapshotsDir = getSnapshotsDir(workspaceRoot);
     const id = crypto.randomUUID();
     const timestamp = Date.now();
+    const diff = computeSimpleDiff(previousContent, newContent);
     
     const snapshot = {
       id,
@@ -136,7 +164,8 @@ function createSnapshot(workspaceRoot, relPath, previousContent, newContent, mes
       timestamp,
       messageSummary,
       previousContent,
-      newContent
+      newContent,
+      diff
     };
     
     const snapshotFile = path.join(snapshotsDir, `${id}.json`);
@@ -596,6 +625,7 @@ function viewFile(workspaceRoot, {
       const numberedLines = selectedLines.map((line, idx) => `${start + idx}: ${line}`).join('\n');
 
       return {
+        success: true,
         path: relPath,
         totalLines,
         startLine: start,
@@ -613,6 +643,7 @@ function viewFile(workspaceRoot, {
 
     if (offset >= totalBytes && totalBytes > 0) {
       return {
+        success: true,
         path: relPath,
         totalBytes,
         contentOffset: offset,
@@ -632,6 +663,7 @@ function viewFile(workspaceRoot, {
     const numberedLines = chunkLines.map((line, idx) => `${baseLineNumber + idx}: ${line}`).join('\n');
 
     return {
+      success: true,
       path: relPath,
       totalBytes,
       totalLines,

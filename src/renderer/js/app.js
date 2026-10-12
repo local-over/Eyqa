@@ -774,8 +774,8 @@ class EyqaApp {
       });
     }
 
-    // Topbar Model Selector Button
-    document.getElementById('topbarModelSelectorBtn')?.addEventListener('click', () => {
+    // Topbar Settings Button
+    document.getElementById('btnTopbarSettings')?.addEventListener('click', () => {
       this.settingsView.open();
     });
 
@@ -892,7 +892,7 @@ class EyqaApp {
 
     // Stop button
     stopBtn?.addEventListener('click', async () => {
-      await api.stopTurn();
+      await api.stopTurn(this.currentSession?.id);
       this.isGenerating = false;
       this._updateGeneratingState();
     });
@@ -916,7 +916,7 @@ class EyqaApp {
           if (textarea) {
             textarea.value += (textarea.value ? ' ' : '') + `@context [Files: ${fileNames}] `;
             textarea.focus();
-            updateSendBtnState();
+            this.updateSendBtnState();
           }
         } else {
           this.showToast('Workspace is empty or has no files.', 'info');
@@ -930,7 +930,7 @@ class EyqaApp {
     dockRemoveAttachBtn?.addEventListener('click', () => {
       this.attachedFile = null;
       this.updateDockMeta();
-      updateSendBtnState();
+      this.updateSendBtnState();
     });
 
     // Web Search Toggle

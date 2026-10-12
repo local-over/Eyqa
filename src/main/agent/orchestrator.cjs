@@ -100,6 +100,9 @@ class AgentOrchestrator {
 
     let systemPrompt = getSystemPrompt(modeId || 'coworker', effectiveFolder);
 
+    const currentDateStr = new Date().toISOString().split('T')[0];
+    systemPrompt += `\n\n[Current Temporal Anchor]: Today's real-world date is ${currentDateStr}. When answering questions anchored in current or recent events, verify information with web_search rather than assuming an earlier cutoff.`;
+
     // Inject Universal Dynamic Memory (persisted cross-project context)
     const memoryStore = getMemoryStore();
     systemPrompt += `\n\n${memoryStore.getSystemPromptSnippet()}`;
@@ -363,7 +366,8 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
           Cwd: args?.Cwd,
           IsDaemon: Boolean(args?.IsDaemon),
           WaitMsBeforeAsync: args?.WaitMsBeforeAsync,
-          workspaceRoot: workspacePath
+          workspaceRoot: workspacePath,
+          signal
         });
       }
 

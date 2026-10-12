@@ -846,7 +846,7 @@ export class ChatView {
         this._activeDecisionSummary = summaryText;
         this._updateProcessHeaderSummary();
         
-        const statusTag = document.getElementById('streamProcessStatus');
+        const statusTag = this.streamingProcessWrapper?.querySelector('#streamProcessStatus');
         if (statusTag) {
           statusTag.textContent = 'Processing...';
           statusTag.className = 'process-status-tag status-running';

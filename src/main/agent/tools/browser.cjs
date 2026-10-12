@@ -504,8 +504,13 @@ class AgentBrowser {
     };
     wc.on('did-navigate', onDidNavigate);
 
+    let checkInterval = null;
     return new Promise((resolve) => {
       this.activeTakeoverResolver = async (userNotes = null) => {
+        if (checkInterval) {
+          clearInterval(checkInterval);
+          checkInterval = null;
+        }
         wc.removeListener('did-navigate', onDidNavigate);
         try {
           win.hide();
@@ -535,9 +540,9 @@ class AgentBrowser {
       };
 
       // Periodic check if button was clicked inside the webpage
-      const checkInterval = setInterval(async () => {
+      checkInterval = setInterval(async () => {
         if (!win || win.isDestroyed()) {
-          clearInterval(checkInterval);
+          if (checkInterval) clearInterval(checkInterval);
           resolve({
             success: true,
             status: 'window_closed',
