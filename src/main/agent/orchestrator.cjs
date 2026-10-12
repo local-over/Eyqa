@@ -33,12 +33,12 @@ const {
   writeWorkspaceFile,
   replaceFileContent,
   viewFile,
-  getProjectMemory
+  getProjectMemory,
+  saveProjectMemory
 } = require('./tools/workspace.cjs');
 const { runCommand, manageTask } = require('./tools/terminal.cjs');
 const { generateImage } = require('./tools/image-gen.cjs');
-const { getMemoryStore } = require('../storage/memory-store.cjs');
-const { getMemoryAgent } = require('./memory-agent.cjs');
+const { getYouMeStore } = require('../storage/you-me-store.cjs');
 const { getSkillsManager } = require('./tools/skills.cjs');
 
 class AgentOrchestrator {
@@ -104,9 +104,9 @@ class AgentOrchestrator {
     const currentDateStr = new Date().toISOString().split('T')[0];
     systemPrompt += `\n\n[Current Temporal Anchor]: Today's real-world date is ${currentDateStr}. When answering questions anchored in current or recent events, verify information with web_search rather than assuming an earlier cutoff.`;
 
-    // Inject Universal Dynamic Memory (persisted cross-project context)
-    const memoryStore = getMemoryStore();
-    systemPrompt += `\n\n${memoryStore.getSystemPromptSnippet()}`;
+    // Inject User Profile (you.me)
+    const youMeStore = getYouMeStore();
+    systemPrompt += `\n\n${youMeStore.getPromptSnippet()}`;
 
     // Inject AI Skills Framework
     const skillsManager = getSkillsManager();
@@ -508,24 +508,65 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
         return { error: 'Provide either DurationSeconds or CronExpression.' };
       }
 
-      // 8. Universal Tree Memory (Semi-Background Memory Agent)
+      // 8. User Profile Memory (you.me) & Project Memory
+      case 'update_user_memory': {
+        const youMe = getYouMeStore();
+        return youMe.update({
+          name: args?.name,
+          background: args?.background || args?.role,
+          likes: args?.likes,
+          notes: args?.notes || args?.fact
+        });
+      }
+
+      case 'update_project_memory': {
+        if (!workspacePath) {
+          return { error: 'No workspace folder linked to this chat. Project memory requires an active project workspace.' };
+        }
+        const existing = getProjectMemory(workspacePath) || {};
+        const updated = {
+          architecture: args?.architecture !== undefined ? args.architecture : (existing.architecture || ''),
+          notes: args?.notes !== undefined ? args.notes : (existing.notes || '')
+        };
+        return saveProjectMemory(workspacePath, updated);
+      }
+
       case 'update_memory': {
-        const memoryAgent = getMemoryAgent();
-        return await memoryAgent.saveMemory({
-          topic: args?.topic || args?.key,
-          information: args?.information || args?.value,
-          category: args?.category || 'fact',
-          key: args?.key,
-          value: args?.value
+        // Universal fallback router: route to project if project-specific, else to you.me
+        const topic = (args?.topic || '').toLowerCase();
+        const info = args?.information || args?.value || '';
+        if (workspacePath && (topic.includes('project') || topic.includes('arch') || topic.includes('codebase'))) {
+          const existing = getProjectMemory(workspacePath) || {};
+          return saveProjectMemory(workspacePath, {
+            ...existing,
+            notes: existing.notes ? `${existing.notes}\n- ${info}` : info
+          });
+        }
+        const youMe = getYouMeStore();
+        return youMe.update({
+          name: args?.name,
+          background: args?.background || args?.role,
+          likes: args?.likes || (args?.category === 'preference' ? info : null),
+          notes: info
         });
       }
 
       case 'recall_memory': {
-        const memoryAgent = getMemoryAgent();
-        return await memoryAgent.queryMemory({
-          query: args?.query,
-          topic: args?.topic
-        });
+        const youMe = getYouMeStore();
+        const parsed = youMe.get();
+        let projMem = null;
+        if (workspacePath) {
+          projMem = getProjectMemory(workspacePath);
+        }
+        return {
+          userProfile: {
+            name: parsed.name,
+            background: parsed.background,
+            likes: parsed.likes,
+            notes: parsed.notes
+          },
+          projectMemory: projMem
+        };
       }
 
       // 9. AI Skills Framework (Skills Hub)

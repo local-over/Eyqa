@@ -104,13 +104,11 @@ contextBridge.exposeInMainWorld('eyqaApi', {
   handBackBrowserControl: (notes) => ipcRenderer.invoke('browser:handBack', notes),
   resolveBrowserTakeover: (takeoverId, notes) => ipcRenderer.invoke('agent:resolveBrowserTakeover', takeoverId, notes),
 
-  // Universal Dynamic Tree Memory
+  // you.me User Profile Memory
+  getYouMe: () => ipcRenderer.invoke('memory:getYouMe'),
+  saveYouMeRaw: (content) => ipcRenderer.invoke('memory:saveYouMeRaw', content),
+  updateYouMe: (fields) => ipcRenderer.invoke('memory:updateYouMe', fields),
   getUniversalMemory: () => ipcRenderer.invoke('memory:getAll'),
-  getMemoryTree: () => ipcRenderer.invoke('memory:getTree'),
-  getMemoryFile: (filename) => ipcRenderer.invoke('memory:getFile', filename),
-  saveMemoryFile: (filename, content) => ipcRenderer.invoke('memory:saveFile', filename, content),
-  createMemoryNode: (name, description, parent) => ipcRenderer.invoke('memory:createNode', name, description, parent),
-  deleteMemoryNode: (filename) => ipcRenderer.invoke('memory:deleteNode', filename),
   updateUniversalProfile: (profile) => ipcRenderer.invoke('memory:updateProfile', profile),
   addUniversalFact: (fact) => ipcRenderer.invoke('memory:addFact', fact),
   deleteUniversalFact: (id) => ipcRenderer.invoke('memory:deleteFact', id),

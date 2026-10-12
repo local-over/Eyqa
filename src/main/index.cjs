@@ -38,6 +38,7 @@ const {
 } = require('./agent/tools/browser.cjs');
 const { generateImage } = require('./agent/tools/image-gen.cjs');
 const { getMemoryStore } = require('./storage/memory-store.cjs');
+const { getYouMeStore } = require('./storage/you-me-store.cjs');
 const { getSkillsManager } = require('./agent/tools/skills.cjs');
 const { fccService } = require('./fcc-service.cjs');
 
@@ -346,29 +347,21 @@ function setupIpcHandlers() {
     return orchestrator.resolveBrowserTakeover(takeoverId, notes);
   });
 
-  // Universal Dynamic Tree Memory IPC
+  // you.me User Profile Memory IPC
+  ipcMain.handle('memory:getYouMe', () => {
+    return getYouMeStore().get();
+  });
+
+  ipcMain.handle('memory:saveYouMeRaw', (_, content) => {
+    return getYouMeStore().saveRaw(content);
+  });
+
+  ipcMain.handle('memory:updateYouMe', (_, fields) => {
+    return getYouMeStore().update(fields);
+  });
+
   ipcMain.handle('memory:getAll', () => {
     return getMemoryStore().getAll();
-  });
-
-  ipcMain.handle('memory:getTree', () => {
-    return getMemoryStore().getTree();
-  });
-
-  ipcMain.handle('memory:getFile', (_, filename) => {
-    return getMemoryStore().getFile(filename);
-  });
-
-  ipcMain.handle('memory:saveFile', (_, filename, content) => {
-    return getMemoryStore().saveFile(filename, content);
-  });
-
-  ipcMain.handle('memory:createNode', (_, name, description, parent) => {
-    return getMemoryStore().createNode(name, description, parent);
-  });
-
-  ipcMain.handle('memory:deleteNode', (_, filename) => {
-    return getMemoryStore().deleteNode(filename);
   });
 
   ipcMain.handle('memory:updateProfile', (_, profile) => {

@@ -174,11 +174,9 @@ export class SettingsView {
     }
 
     try {
-      this.universalMemory = await api.getUniversalMemory();
-      this.memoryTree = await api.getMemoryTree();
+      this.youMe = await api.getYouMe();
     } catch (_) {
-      this.universalMemory = { userProfile: {}, learnedFacts: [] };
-      this.memoryTree = { nodes: [] };
+      this.youMe = { name: '', background: '', likes: [], notes: [], raw: '' };
     }
 
     try {
@@ -299,7 +297,7 @@ export class SettingsView {
       case 'free': return 'Free AI Pool & 1.75B Token Capacity';
       case 'paid': return 'Paid Frontier Models & Reasoning';
       case 'project': return 'Active Project Configuration';
-      case 'memory': return 'Universal Dynamic Memory';
+      case 'memory': return 'User Profile & Preferences (you.me)';
       case 'skills': return 'AI Skills & Skills Hub Integration';
       case 'general': return 'Preferences & Customization';
       default: return 'Settings';
@@ -311,7 +309,7 @@ export class SettingsView {
       case 'free': return '100% Automated pool. No manual model selection needed—Eyqa automatically routes through all 19 Free Claude Code providers with instant HTTP 429 failover.';
       case 'paid': return 'Official paid API keys for Anthropic Claude 3.7 Sonnet, OpenAI GPT-4o, DeepSeek-V3/R1, and xAI Grok with manual model selection and reasoning effort controls.';
       case 'project': return 'Configure workspace folder permissions and custom system prompt rules for the current project.';
-      case 'memory': return 'Cross-project learned memory. Eyqa dynamically updates habits, context, and preferences across conversations.';
+      case 'memory': return 'Information about you (your name, background, what you like, and preferences). Project and codebase memory is kept strictly per project in Project Settings.';
       case 'skills': return 'Modular skills catalog and live discovery from https://skills-hub.ai. Enhance Eyqa with domain-specific workflows.';
       case 'general': return 'Theme appearance, DuckDuckGo web search grounding defaults, and keyboard shortcuts.';
       default: return '';
@@ -1181,192 +1179,74 @@ export class SettingsView {
    * Tab: Universal Dynamic Memory
    */
   /**
-   * Tab: Universal Dynamic Tree Memory (~/.config/eyqa/memory/)
+   * Tab: User Profile Memory (you.me)
    */
   _renderMemoryTab() {
-    const tree = this.memoryTree || { nodes: [] };
-    const nodes = tree.nodes || [];
-    const rootNode = nodes.find(n => n.isRoot || n.filename === 'main.me') || {
-      filename: 'main.me',
-      title: 'Root Memory (Essential Context)',
-      lineCount: 0,
-      wordCount: 0,
-      content: ''
-    };
-    const childNodes = nodes.filter(n => n.filename !== 'main.me');
+    const data = this.youMe || { name: '', background: '', likes: [], notes: [], raw: '' };
+    const likesText = (data.likes || []).join('\n');
+    const notesText = (data.notes || []).join('\n');
 
     return `
-      <!-- Universal Tree Memory Header -->
+      <!-- you.me Header Card -->
       <div class="settings-section-card">
         <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;">
           <div>
             <div class="section-card-title" style="display: flex; align-items: center; gap: 8px;">
-              <span>Universal Tree Memory</span>
-              <span style="font-size: 11px; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 8px; font-weight: normal; color: var(--text-secondary); font-family: var(--font-mono);">~/.config/eyqa/memory/</span>
+              <span>User Profile & Personal Preferences</span>
+              <span style="font-size: 11px; background: rgba(255,255,255,0.08); padding: 2px 8px; border-radius: 8px; font-weight: normal; color: var(--text-secondary); font-family: var(--font-mono);">~/.config/eyqa/you.me</span>
             </div>
             <div class="section-card-desc" style="margin-top: 4px;">
-              Modular <code>.me</code> memory tree with hard limits (max 40 lines / 300 words per file) managed systematically by the background Memory Agent.
+              Stores strictly who you are (name, background, what you like, and preferences). Eyqa remembers this across all chats. Workspace architecture and coding conventions are stored per project in Project Settings.
             </div>
           </div>
-          <button class="primary-btn btn-open-create-node" style="padding: 6px 14px; font-size: 12px; white-space: nowrap;">
-            + Add Branch Node
+          <button id="btnToggleYouMeMode" class="secondary-btn" style="padding: 6px 14px; font-size: 12px; white-space: nowrap;">
+            Raw Markdown Editor
           </button>
         </div>
+      </div>
 
-        <!-- Budget & Architecture Badges -->
-        <div style="display: flex; gap: 12px; margin-top: 14px; flex-wrap: wrap;">
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 6px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
-            <span style="color: #4ade80;">●</span>
-            <span style="color: #fff; font-weight: 500;">Hard Budget:</span>
-            <span style="color: var(--text-secondary);">40 lines & 300 words / node</span>
+      <!-- Structured Form View -->
+      <div id="youMeFormView" class="settings-section-card">
+        <div style="display: flex; flex-direction: column; gap: 16px;">
+          <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px;">
+            <div>
+              <label style="font-size: 12px; font-weight: 500; color: #fff; display: block; margin-bottom: 6px;">Your Name</label>
+              <input type="text" id="youMeNameInput" class="input-text" placeholder="e.g. Hassan" value="${this._escape(data.name || '')}" style="width: 100%;" />
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">How Eyqa should address you.</div>
+            </div>
+            <div>
+              <label style="font-size: 12px; font-weight: 500; color: #fff; display: block; margin-bottom: 6px;">Background / Role</label>
+              <input type="text" id="youMeBgInput" class="input-text" placeholder="e.g. Full-Stack Engineer & AI Researcher" value="${this._escape(data.background || '')}" style="width: 100%;" />
+              <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Your profession, skills, or experience level.</div>
+            </div>
           </div>
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 6px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
-            <span style="color: #60a5fa;">●</span>
-            <span style="color: #fff; font-weight: 500;">Active Tree:</span>
-            <span style="color: var(--text-secondary);">${nodes.length} .me files</span>
+
+          <div>
+            <label style="font-size: 12px; font-weight: 500; color: #fff; display: block; margin-bottom: 6px;">What You Like & Personal Preferences</label>
+            <textarea id="youMeLikesInput" class="input-text" rows="5" placeholder="e.g. Prefers direct answers without conversational filler&#10;Likes TypeScript, Rust, and Go&#10;Prefers surgical diffs over full rewrites" style="width: 100%; resize: vertical; line-height: 1.5;">${this._escape(likesText)}</textarea>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">One preference per line. Eyqa automatically respects these across your conversations.</div>
           </div>
-          <div style="background: rgba(255,255,255,0.03); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 6px 12px; font-size: 11.5px; display: flex; align-items: center; gap: 8px;">
-            <span style="color: #a78bfa;">●</span>
-            <span style="color: #fff; font-weight: 500;">Custodian:</span>
-            <span style="color: var(--text-secondary);">Semi-background Memory Agent</span>
+
+          <div>
+            <label style="font-size: 12px; font-weight: 500; color: #fff; display: block; margin-bottom: 6px;">Personal Notes & Extra Context</label>
+            <textarea id="youMeNotesInput" class="input-text" rows="3" placeholder="Any personal notes or additional facts about you..." style="width: 100%; resize: vertical; line-height: 1.5;">${this._escape(notesText)}</textarea>
+            <div style="font-size: 11px; color: var(--text-secondary); margin-top: 4px;">Extra personal context preserved in you.me.</div>
+          </div>
+
+          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px;">
+            <button id="btnSaveYouMeForm" class="primary-btn" style="padding: 8px 24px; font-size: 12.5px;">Save Profile to you.me</button>
           </div>
         </div>
       </div>
 
-      <!-- Root Node Card (main.me) -->
-      <div class="settings-section-card" style="border: 1px solid rgba(255, 255, 255, 0.15); background: rgba(255, 255, 255, 0.02);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="width: 28px; height: 28px; border-radius: 8px; background: rgba(255,255,255,0.08); display: flex; align-items: center; justify-content: center; font-size: 14px;">🌳</div>
-            <div>
-              <div style="font-size: 14px; font-weight: 600; color: #fff;">main.me <span style="font-size: 11px; background: rgba(255,255,255,0.1); padding: 2px 7px; border-radius: 6px; color: #a1a1aa; margin-left: 6px;">Root Context</span></div>
-              <div style="font-size: 11.5px; color: var(--text-secondary);">Injected directly into every turn's system prompt (User identity, role, and index links).</div>
-            </div>
-          </div>
-          <div style="display: flex; align-items: center; gap: 10px;">
-            <span style="font-size: 11px; font-family: var(--font-mono); color: var(--text-secondary); background: rgba(0,0,0,0.3); padding: 4px 8px; border-radius: 6px;">
-              ${rootNode.lineCount}/40 lines • ${rootNode.wordCount}/300 words
-            </span>
-            <button class="secondary-btn btn-edit-memory-node" data-file="main.me" style="padding: 4px 12px; font-size: 12px;">
-              Edit main.me
-            </button>
-          </div>
+      <!-- Raw Markdown Editor View (Hidden by default) -->
+      <div id="youMeRawView" class="settings-section-card" style="display: none;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+          <div style="font-size: 12px; color: var(--text-secondary);">Directly edit <code>you.me</code> markdown file:</div>
         </div>
-
-        <!-- Links from main.me to child branches -->
-        <div style="margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--border-subtle);">
-          <div style="font-size: 11.5px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-secondary); margin-bottom: 8px; font-weight: 600;">Linked Sub-Branches in main.me:</div>
-          <div style="display: flex; flex-wrap: wrap; gap: 8px;">
-            ${(rootNode.links || []).map(l => `
-              <span class="memory-link-pill" style="display: inline-flex; align-items: center; gap: 6px; background: rgba(255,255,255,0.04); border: 1px solid var(--border-subtle); border-radius: 8px; padding: 4px 10px; font-size: 12px; color: #e4e4e7;">
-                <span style="color: #60a5fa;">↳</span>
-                <strong>${this._escape(l.target)}</strong>
-                ${l.description ? `<span style="color: var(--text-secondary); font-size: 11px;">(${this._escape(l.description)})</span>` : ''}
-              </span>
-            `).join('')}
-          </div>
-        </div>
-      </div>
-
-      <!-- Tree Branches Visual Deck -->
-      <div class="settings-section-card">
-        <div class="section-card-title">Memory Tree Branches</div>
-        <div class="section-card-desc">Specialized domain nodes consulted by the Memory Agent when deeper facts are recalled.</div>
-
-        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: 14px; margin-top: 16px;">
-          ${childNodes.map(n => {
-            const linePercent = Math.min(100, Math.round((n.lineCount / 40) * 100));
-            const barColor = linePercent > 85 ? '#ef4444' : linePercent > 60 ? '#f59e0b' : '#10b981';
-            return `
-              <div class="memory-node-card" style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
-                <div>
-                  <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
-                    <div>
-                      <strong style="color: #fff; font-size: 13.5px;">${this._escape(n.title)}</strong>
-                      <div style="font-size: 11px; font-family: var(--font-mono); color: #60a5fa; margin-top: 2px;">${this._escape(n.filename)}</div>
-                    </div>
-                    <span style="font-size: 10.5px; background: rgba(255,255,255,0.06); padding: 2px 7px; border-radius: 6px; color: var(--text-secondary);">↳ ${this._escape(n.parent || 'main.me')}</span>
-                  </div>
-
-                  <!-- Budget Bar -->
-                  <div style="margin: 10px 0;">
-                    <div style="display: flex; justify-content: space-between; font-size: 10.5px; color: var(--text-secondary); margin-bottom: 4px;">
-                      <span>Budget: ${n.lineCount}/40 lines</span>
-                      <span>${n.wordCount}/300 words</span>
-                    </div>
-                    <div style="height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;">
-                      <div style="width: ${linePercent}%; height: 100%; background: ${barColor};"></div>
-                    </div>
-                  </div>
-
-                  <!-- Preview of content -->
-                  <div style="font-size: 11.5px; color: var(--text-secondary); font-family: var(--font-mono); background: rgba(0,0,0,0.25); border-radius: 6px; padding: 8px; margin-top: 8px; max-height: 60px; overflow: hidden; line-height: 1.4;">
-                    ${this._escape((n.content || '').split('\n').slice(0, 3).join('\n'))}
-                  </div>
-                </div>
-
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px; padding-top: 10px; border-top: 1px solid rgba(255,255,255,0.04);">
-                  <button class="secondary-btn btn-edit-memory-node" data-file="${this._escape(n.filename)}" style="padding: 4px 10px; font-size: 11.5px;">
-                    View & Edit
-                  </button>
-                  <button class="icon-btn btn-delete-memory-node" data-file="${this._escape(n.filename)}" title="Delete node" style="color: #ef4444; opacity: 0.7; cursor: pointer;">
-                    ${icons.trash}
-                  </button>
-                </div>
-              </div>
-            `;
-          }).join('')}
-        </div>
-      </div>
-
-      <!-- Node Editor Modal (Hidden by default) -->
-      <div id="memoryNodeEditorModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
-        <div style="background: #141414; border: 1px solid var(--border-medium); border-radius: 14px; width: 100%; max-width: 680px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
-          <div style="display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--border-subtle);">
-            <div>
-              <strong id="editorNodeFilename" style="color: #fff; font-size: 15px;">node.me</strong>
-              <div id="editorNodeBudget" style="font-size: 11.5px; color: var(--text-secondary); margin-top: 2px;">0/40 lines • 0/300 words</div>
-            </div>
-            <button id="btnCloseNodeEditor" class="topbar-icon-btn" style="cursor: pointer;">✕</button>
-          </div>
-          <div style="padding: 16px 20px;">
-            <textarea id="editorNodeContent" style="width: 100%; height: 320px; background: #0a0a0a; border: 1px solid var(--border-subtle); border-radius: 8px; color: #e4e4e7; font-family: var(--font-mono); font-size: 12.5px; padding: 12px; resize: vertical; outline: none; line-height: 1.5; box-sizing: border-box;"></textarea>
-          </div>
-          <div style="display: flex; justify-content: flex-end; gap: 10px; padding: 12px 20px; border-top: 1px solid var(--border-subtle); background: #111;">
-            <button id="btnCancelNodeEditor" class="secondary-btn" style="padding: 6px 14px;">Cancel</button>
-            <button id="btnSaveNodeEditor" class="primary-btn" style="padding: 6px 18px;">Save Node</button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Create New Branch Modal (Hidden by default) -->
-      <div id="memoryNewNodeModal" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 10000; align-items: center; justify-content: center; padding: 20px;">
-        <div style="background: #141414; border: 1px solid var(--border-medium); border-radius: 14px; width: 100%; max-width: 480px; padding: 20px; box-shadow: 0 16px 40px rgba(0,0,0,0.6);">
-          <div style="font-size: 16px; font-weight: 600; color: #fff; margin-bottom: 4px;">+ Add New Memory Branch</div>
-          <div style="font-size: 12px; color: var(--text-secondary); margin-bottom: 16px;">Creates a new specialized .me file linked into the memory tree.</div>
-
-          <div style="display: flex; flex-direction: column; gap: 12px;">
-            <div>
-              <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Branch Name (e.g. database, coding-style, habits)</label>
-              <input type="text" id="newNodeNameInput" class="input-text" placeholder="branch-name" style="width: 100%;" />
-            </div>
-            <div>
-              <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Description / Scope</label>
-              <input type="text" id="newNodeDescInput" class="input-text" placeholder="Summary of what this node stores" style="width: 100%;" />
-            </div>
-            <div>
-              <label style="font-size: 12px; color: var(--text-secondary); display: block; margin-bottom: 4px;">Parent Link</label>
-              <select id="newNodeParentSelect" class="input-text" style="width: 100%;">
-                <option value="main.me">main.me (Root)</option>
-                ${childNodes.map(n => `<option value="${this._escape(n.filename)}">${this._escape(n.filename)}</option>`).join('')}
-              </select>
-            </div>
-          </div>
-
-          <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 20px;">
-            <button id="btnCancelNewNode" class="secondary-btn" style="padding: 6px 14px;">Cancel</button>
-            <button id="btnConfirmCreateNode" class="primary-btn" style="padding: 6px 18px;">Create Node</button>
-          </div>
+        <textarea id="youMeRawTextarea" class="input-text" rows="14" style="width: 100%; font-family: var(--font-mono); font-size: 12.5px; resize: vertical; line-height: 1.5;">${this._escape(data.raw || '')}</textarea>
+        <div style="display: flex; justify-content: flex-end; gap: 10px; margin-top: 12px;">
+          <button id="btnSaveYouMeRaw" class="primary-btn" style="padding: 8px 24px; font-size: 12.5px;">Save you.me</button>
         </div>
       </div>
     `;
@@ -1807,136 +1687,86 @@ export class SettingsView {
       }
     });
 
-    // --- Universal Dynamic Tree Memory Tab Events ---
-    // 1. Open New Node Modal
-    this.container.querySelector('.btn-open-create-node')?.addEventListener('click', () => {
-      const modal = this.container.querySelector('#memoryNewNodeModal');
-      const nameInput = this.container.querySelector('#newNodeNameInput');
-      const descInput = this.container.querySelector('#newNodeDescInput');
-      if (nameInput) nameInput.value = '';
-      if (descInput) descInput.value = '';
-      if (modal) modal.style.display = 'flex';
-      nameInput?.focus();
+    // --- User Profile (you.me) Tab Events ---
+    // 1. Toggle between Form View and Raw Markdown View
+    this.container.querySelector('#btnToggleYouMeMode')?.addEventListener('click', (e) => {
+      const formView = this.container.querySelector('#youMeFormView');
+      const rawView = this.container.querySelector('#youMeRawView');
+      if (!formView || !rawView) return;
+
+      const isRawVisible = rawView.style.display !== 'none';
+      if (isRawVisible) {
+        rawView.style.display = 'none';
+        formView.style.display = 'block';
+        e.currentTarget.textContent = 'Raw Markdown Editor';
+      } else {
+        const name = this.container.querySelector('#youMeNameInput')?.value?.trim() || '';
+        const bg = this.container.querySelector('#youMeBgInput')?.value?.trim() || '';
+        const likes = (this.container.querySelector('#youMeLikesInput')?.value || '')
+          .split('\n').map(l => l.trim()).filter(Boolean);
+        const notes = (this.container.querySelector('#youMeNotesInput')?.value || '')
+          .split('\n').map(l => l.trim()).filter(Boolean);
+
+        let syncMarkdown = `# you.me - User Profile\n\nName: ${name}\nBackground: ${bg}\nLikes & Preferences:\n`;
+        if (likes.length > 0) {
+          syncMarkdown += likes.map(l => `- ${l.replace(/^-\s*/, '')}`).join('\n') + '\n';
+        }
+        syncMarkdown += '\nNotes:\n';
+        if (notes.length > 0) {
+          syncMarkdown += notes.map(n => `- ${n.replace(/^-\s*/, '')}`).join('\n') + '\n';
+        }
+
+        const rawTextarea = this.container.querySelector('#youMeRawTextarea');
+        if (rawTextarea) rawTextarea.value = syncMarkdown;
+
+        formView.style.display = 'none';
+        rawView.style.display = 'block';
+        e.currentTarget.textContent = 'Form Editor';
+      }
     });
 
-    // 2. Cancel New Node
-    this.container.querySelector('#btnCancelNewNode')?.addEventListener('click', () => {
-      const modal = this.container.querySelector('#memoryNewNodeModal');
-      if (modal) modal.style.display = 'none';
-    });
+    // 2. Save Profile Form
+    this.container.querySelector('#btnSaveYouMeForm')?.addEventListener('click', async () => {
+      const name = this.container.querySelector('#youMeNameInput')?.value?.trim() || '';
+      const background = this.container.querySelector('#youMeBgInput')?.value?.trim() || '';
+      const likesRaw = this.container.querySelector('#youMeLikesInput')?.value || '';
+      const notesRaw = this.container.querySelector('#youMeNotesInput')?.value || '';
 
-    // 3. Confirm Create Node
-    this.container.querySelector('#btnConfirmCreateNode')?.addEventListener('click', async () => {
-      const name = this.container.querySelector('#newNodeNameInput')?.value?.trim();
-      const desc = this.container.querySelector('#newNodeDescInput')?.value?.trim() || '';
-      const parent = this.container.querySelector('#newNodeParentSelect')?.value || 'main.me';
+      const likes = likesRaw.split('\n').map(l => l.trim()).filter(Boolean);
+      const notes = notesRaw.split('\n').map(l => l.trim()).filter(Boolean);
 
-      if (!name) {
-        if (this.onNotification) this.onNotification('Node name is required.', 'error');
-        return;
+      let markdown = `# you.me - User Profile\n\nName: ${name}\nBackground: ${background}\nLikes & Preferences:\n`;
+      if (likes.length > 0) {
+        markdown += likes.map(l => `- ${l.replace(/^-\s*/, '')}`).join('\n') + '\n';
+      }
+      markdown += '\nNotes:\n';
+      if (notes.length > 0) {
+        markdown += notes.map(n => `- ${n.replace(/^-\s*/, '')}`).join('\n') + '\n';
       }
 
-      const res = await api.createMemoryNode(name, desc, parent);
+      const res = await api.saveYouMeRaw(markdown);
       if (res && res.success) {
-        this.memoryTree = await api.getMemoryTree();
-        if (this.onNotification) this.onNotification(`Memory node "${res.filename}" created.`, 'success');
+        this.youMe = await api.getYouMe();
+        if (this.onNotification) this.onNotification('User profile saved to you.me!', 'success');
         this.render();
       } else {
-        if (this.onNotification) this.onNotification(res?.error || 'Failed to create memory node.', 'error');
+        if (this.onNotification) this.onNotification(res?.error || 'Failed to save you.me.', 'error');
       }
     });
 
-    // Helper for budget calculation
-    const updateEditorBudget = (text) => {
-      const budgetEl = this.container.querySelector('#editorNodeBudget');
-      if (!budgetEl) return;
-      const lines = text.split('\n').length;
-      const words = text.trim() ? text.trim().split(/\s+/).length : 0;
-      const isOver = lines > 40 || words > 300;
-      budgetEl.innerHTML = `<span style="color: ${isOver ? '#ef4444' : '#a1a1aa'}; font-weight: ${isOver ? 'bold' : 'normal'};">${lines}/40 lines • ${words}/300 words ${isOver ? '(Budget Exceeded!)' : ''}</span>`;
-    };
+    // 3. Save Raw Markdown
+    this.container.querySelector('#btnSaveYouMeRaw')?.addEventListener('click', async () => {
+      const content = this.container.querySelector('#youMeRawTextarea')?.value;
+      if (content === undefined) return;
 
-    // 4. Open Node Editor
-    this.container.querySelectorAll('.btn-edit-memory-node').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const filename = e.currentTarget.dataset.file;
-        if (!filename) return;
-
-        const res = await api.getMemoryFile(filename);
-        if (!res || !res.success) {
-          if (this.onNotification) this.onNotification(res?.error || 'Failed to load memory file.', 'error');
-          return;
-        }
-
-        const modal = this.container.querySelector('#memoryNodeEditorModal');
-        const filenameEl = this.container.querySelector('#editorNodeFilename');
-        const contentEl = this.container.querySelector('#editorNodeContent');
-
-        if (filenameEl) filenameEl.textContent = filename;
-        if (contentEl) {
-          contentEl.value = res.content || '';
-          updateEditorBudget(contentEl.value);
-        }
-        if (modal) modal.style.display = 'flex';
-      });
-    });
-
-    // Content change updates budget live
-    this.container.querySelector('#editorNodeContent')?.addEventListener('input', (e) => {
-      updateEditorBudget(e.target.value);
-    });
-
-    // 5. Close / Cancel Node Editor
-    const closeEditor = () => {
-      const modal = this.container.querySelector('#memoryNodeEditorModal');
-      if (modal) modal.style.display = 'none';
-    };
-    this.container.querySelector('#btnCloseNodeEditor')?.addEventListener('click', closeEditor);
-    this.container.querySelector('#btnCancelNodeEditor')?.addEventListener('click', closeEditor);
-
-    // 6. Save Node
-    this.container.querySelector('#btnSaveNodeEditor')?.addEventListener('click', async () => {
-      const filename = this.container.querySelector('#editorNodeFilename')?.textContent?.trim();
-      const content = this.container.querySelector('#editorNodeContent')?.value;
-
-      if (!filename) return;
-
-      const lines = content.split('\n').length;
-      const words = content.trim() ? content.trim().split(/\s+/).length : 0;
-      if (lines > 40 || words > 300) {
-        if (!confirm(`Warning: This node exceeds the budget (${lines}/40 lines, ${words}/300 words). High token usage may result. Save anyway?`)) {
-          return;
-        }
-      }
-
-      const res = await api.saveMemoryFile(filename, content);
+      const res = await api.saveYouMeRaw(content);
       if (res && res.success) {
-        this.memoryTree = await api.getMemoryTree();
-        if (this.onNotification) this.onNotification(`Saved "${filename}" to Universal Tree Memory.`, 'success');
-        closeEditor();
+        this.youMe = await api.getYouMe();
+        if (this.onNotification) this.onNotification('Saved you.me successfully!', 'success');
         this.render();
       } else {
-        if (this.onNotification) this.onNotification(res?.error || 'Failed to save node.', 'error');
+        if (this.onNotification) this.onNotification(res?.error || 'Failed to save you.me.', 'error');
       }
-    });
-
-    // 7. Delete Node
-    this.container.querySelectorAll('.btn-delete-memory-node').forEach(btn => {
-      btn.addEventListener('click', async (e) => {
-        const filename = e.currentTarget.dataset.file;
-        if (!filename) return;
-
-        if (confirm(`Are you sure you want to delete branch node "${filename}"? Any facts in this branch will be permanently removed.`)) {
-          const res = await api.deleteMemoryNode(filename);
-          if (res && res.success) {
-            this.memoryTree = await api.getMemoryTree();
-            if (this.onNotification) this.onNotification(`Memory branch "${filename}" deleted.`, 'info');
-            this.render();
-          } else {
-            if (this.onNotification) this.onNotification(res?.error || 'Failed to delete node.', 'error');
-          }
-        }
-      });
     });
 
     // --- AI Skills Tab Events ---

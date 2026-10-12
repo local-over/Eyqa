@@ -495,45 +495,64 @@ const MEMORY_SCHEMAS = [
   {
     type: 'function',
     function: {
-      name: 'update_memory',
-      description: 'Systematically save or update user facts, habits, tech stack, or context into the universal tree memory (~/.config/eyqa/memory/). Managed by the semi-background memory agent.',
+      name: 'update_user_memory',
+      description: 'Save or update personal facts about the user in you.me (~/.config/eyqa/you.me). Use this whenever the user shares their name, background/role, what they like, hobbies, or personal preferences. Strictly for the human user (not project codebase).',
       parameters: {
         type: 'object',
         properties: {
-          topic: {
+          name: {
             type: 'string',
-            description: 'Topic or branch name (e.g. "tech-stack", "preferences", "projects", "identity").'
+            description: "The user's name or preferred nickname."
           },
-          information: {
+          background: {
             type: 'string',
-            description: 'The specific fact, habit, or instruction to record permanently.'
+            description: "The user's background, profession, domain expertise, or role."
           },
-          category: {
+          likes: {
             type: 'string',
-            enum: ['preference', 'fact', 'instruction', 'work_context'],
-            description: 'Memory classification.'
+            description: "What the user likes, enjoys, or personal preferences (e.g. tools, formatting style, hobbies)."
+          },
+          notes: {
+            type: 'string',
+            description: 'Any additional personal note or fact about the user.'
           }
-        },
-        required: ['topic', 'information']
+        }
       }
     }
   },
   {
     type: 'function',
     function: {
-      name: 'recall_memory',
-      description: 'Query the universal tree memory (~/.config/eyqa/memory/) to pull deep context, preferences, or domain knowledge not present in root main.me.',
+      name: 'update_project_memory',
+      description: 'Save architectural notes, codebase conventions, or project-specific context to this project\'s .eyqa memory. Only available when working within a project workspace.',
       parameters: {
         type: 'object',
         properties: {
-          query: {
+          notes: {
             type: 'string',
-            description: 'Keyword or question to look up in the memory tree (e.g. "rust preferences", "active projects").'
+            description: 'Conventions, decisions, or guidelines specific to this project.'
           },
-          topic: {
+          architecture: {
             type: 'string',
-            description: 'Optional specific memory branch or node name (e.g. "tech-stack.me").'
+            description: 'Key architecture, stack components, or workflow structure for this project.'
           }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_memory',
+      description: 'General memory updater. Automatically routes user facts (name, background, likes) to you.me and project architecture to project memory.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: "User's name" },
+          background: { type: 'string', description: "User's background/role" },
+          likes: { type: 'string', description: "User's preferences or what they like" },
+          topic: { type: 'string', description: 'Memory topic' },
+          information: { type: 'string', description: 'Fact or note to record' }
         }
       }
     }

@@ -284,7 +284,29 @@ export const api = {
     return { success: false };
   },
 
-  // Universal Dynamic Tree Memory
+  // you.me User Profile Memory
+  async getYouMe() {
+    if (isElectron && window.eyqaApi.getYouMe) {
+      return await window.eyqaApi.getYouMe();
+    }
+    return { name: '', background: '', likes: [], notes: [], raw: '' };
+  },
+
+  async saveYouMeRaw(content) {
+    if (isElectron && window.eyqaApi.saveYouMeRaw) {
+      return await window.eyqaApi.saveYouMeRaw(content);
+    }
+    return { success: false };
+  },
+
+  async updateYouMe(fields) {
+    if (isElectron && window.eyqaApi.updateYouMe) {
+      return await window.eyqaApi.updateYouMe(fields);
+    }
+    return { success: false };
+  },
+
+  // Universal Memory (Backward Compatible)
   async getUniversalMemory() {
     if (isElectron && window.eyqaApi.getUniversalMemory) {
       return await window.eyqaApi.getUniversalMemory();
