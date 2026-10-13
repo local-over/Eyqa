@@ -648,6 +648,9 @@ function setupIpcHandlers() {
         onBrowserTakeover: (takeoverData) => {
           if (!ac.signal.aborted) sender.send('agent:browser-takeover', { sessionId: turnKey, takeover: takeoverData });
         },
+        onTaskPlanUpdate: (planData) => {
+          if (!ac.signal.aborted) sender.send('agent:task-plan-update', { sessionId: turnKey, plan: planData });
+        },
         signal: ac.signal
       });
 

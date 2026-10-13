@@ -98,6 +98,11 @@ contextBridge.exposeInMainWorld('eyqaApi', {
     ipcRenderer.on('agent:browser-takeover', handler);
     return () => ipcRenderer.removeListener('agent:browser-takeover', handler);
   },
+  onTaskPlanUpdate: (callback) => {
+    const handler = (_, planData) => callback(planData);
+    ipcRenderer.on('agent:task-plan-update', handler);
+    return () => ipcRenderer.removeListener('agent:task-plan-update', handler);
+  },
   onFocusSession: (callback) => {
     const handler = (_, sessionId) => callback(sessionId);
     ipcRenderer.on('app:focus-session', handler);

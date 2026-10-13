@@ -392,12 +392,85 @@ const INTERACTIVE_DECISION_SCHEMAS = [
   }
 ];
 
+const PLANNING_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'track_task_plan',
+      description: 'Initialize or update the structured execution plan, milestone checklist, and progress roadmap for this mission. ALWAYS invoke this first for complex, multi-step, research, or coding tasks to anchor execution, track subtasks, and eliminate hallucination.',
+      parameters: {
+        type: 'object',
+        properties: {
+          planTitle: {
+            type: 'string',
+            description: 'Clear, concise title of the overall mission or execution plan.'
+          },
+          tasks: {
+            type: 'array',
+            description: 'Milestones and subtasks in the execution plan.',
+            items: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Unique identifier for the task, e.g. "task-1", "task-2".'
+                },
+                title: {
+                  type: 'string',
+                  description: 'Clear, actionable description of the milestone.'
+                },
+                status: {
+                  type: 'string',
+                  enum: ['pending', 'in_progress', 'completed', 'failed'],
+                  description: 'Current status of the milestone.'
+                },
+                details: {
+                  type: 'string',
+                  description: 'Execution details, assigned subagent, or verified outcome.'
+                }
+              },
+              required: ['id', 'title', 'status']
+            }
+          }
+        },
+        required: ['planTitle', 'tasks']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_task_status',
+      description: 'Update the progress status and verified results of an individual milestone in the active plan as work progresses. Call this immediately as each task starts (in_progress) and completes (completed) with a concrete summary of verified results.',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: {
+            type: 'string',
+            description: 'ID of the milestone to update (must match an id from track_task_plan).'
+          },
+          status: {
+            type: 'string',
+            enum: ['pending', 'in_progress', 'completed', 'failed'],
+            description: 'New status for the milestone.'
+          },
+          resultSummary: {
+            type: 'string',
+            description: 'Concise summary of verified results, data points, or evidence gathered for this milestone.'
+          }
+        },
+        required: ['taskId', 'status']
+      }
+    }
+  }
+];
+
 const SUBAGENT_SCHEMAS = [
   {
     type: 'function',
     function: {
       name: 'invoke_subagent',
-      description: 'Spawn one or more specialized background worker subagents (e.g. researcher, code_auditor, designer) with targeted instructions and receive structured findings.',
+      description: 'Spawn one or more specialized background worker subagents (e.g. researcher, searcher, code_auditor, analyst, writer) with targeted assignments. Each subagent runs its own autonomous tool loop (web search, browser navigation, workspace files) and returns un-truncated, verified findings. You can run multiple subagents in parallel to research different angles simultaneously, inspect their findings, and loop as needed.',
       parameters: {
         type: 'object',
         properties: {
@@ -409,16 +482,16 @@ const SUBAGENT_SCHEMAS = [
               properties: {
                 Role: {
                   type: 'string',
-                  enum: ['researcher', 'code_auditor', 'designer', 'tester', 'analyst'],
+                  enum: ['researcher', 'searcher', 'code_auditor', 'designer', 'tester', 'analyst', 'writer'],
                   description: 'Specialized role for this subagent.'
                 },
                 TypeName: {
                   type: 'string',
-                  description: 'Human-readable title (e.g. "Security Audit Specialist")'
+                  description: 'Descriptive title for this worker (e.g. "Primary Tech Documentation Searcher", "Competitor Pricing Analyst")'
                 },
                 Prompt: {
                   type: 'string',
-                  description: 'Detailed instructions and task assignment for the subagent.'
+                  description: 'Detailed instructions and specific research or audit assignment for the subagent.'
                 }
               },
               required: ['Role', 'Prompt']
@@ -619,6 +692,7 @@ const SKILLS_SCHEMAS = [
 
 // Unified TOOL_SCHEMAS
 const TOOL_SCHEMAS = [
+  ...PLANNING_SCHEMAS,
   ...WEB_TOOL_SCHEMAS,
   ...BROWSER_TAKEOVER_SCHEMAS,
   ...WORKSPACE_TOOL_SCHEMAS,
@@ -630,6 +704,53 @@ const TOOL_SCHEMAS = [
   ...MEMORY_SCHEMAS,
   ...SKILLS_SCHEMAS
 ];
+
+/**
+ * Filter tools tailored specifically for specialized background subagent workers.
+ * Excludes interactive questions, user handoff takeovers, and recursive subagents.
+ */
+function getSubagentTools(role = 'researcher', hasWorkspace = false) {
+  const wsReadTools = hasWorkspace ? [
+    WORKSPACE_TOOL_SCHEMAS.find(t => t.function.name === 'workspace_read_file'),
+    WORKSPACE_TOOL_SCHEMAS.find(t => t.function.name === 'workspace_list'),
+    WORKSPACE_TOOL_SCHEMAS.find(t => t.function.name === 'view_file')
+  ].filter(Boolean) : [];
+
+  switch (role) {
+    case 'researcher':
+    case 'searcher':
+      return [
+        ...WEB_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+    case 'code_auditor':
+      return [
+        ...wsReadTools,
+        ...TERMINAL_TOOL_SCHEMAS
+      ];
+    case 'tester':
+      return [
+        ...TERMINAL_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+    case 'designer':
+      return [
+        ...IMAGE_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+    case 'analyst':
+    case 'writer':
+      return [
+        ...WEB_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+    default:
+      return [
+        ...WEB_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+  }
+}
 
 // Gemini function declaration format
 const GEMINI_FUNCTION_DECLARATIONS = TOOL_SCHEMAS.map(tool => ({
@@ -646,6 +767,7 @@ const ANTHROPIC_TOOL_DEFINITIONS = TOOL_SCHEMAS.map(tool => ({
 }));
 
 module.exports = {
+  PLANNING_SCHEMAS,
   WEB_TOOL_SCHEMAS,
   WORKSPACE_TOOL_SCHEMAS,
   TERMINAL_TOOL_SCHEMAS,
@@ -655,5 +777,6 @@ module.exports = {
   SCHEDULE_SCHEMAS,
   TOOL_SCHEMAS,
   GEMINI_FUNCTION_DECLARATIONS,
-  ANTHROPIC_TOOL_DEFINITIONS
+  ANTHROPIC_TOOL_DEFINITIONS,
+  getSubagentTools
 };

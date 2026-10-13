@@ -16,7 +16,7 @@
 
 const fs = require('node:fs');
 const path = require('node:path');
-const { WEB_TOOL_SCHEMAS, TOOL_SCHEMAS } = require('./providers/base.cjs');
+const { WEB_TOOL_SCHEMAS, TOOL_SCHEMAS, getSubagentTools } = require('./providers/base.cjs');
 const { getSystemPrompt } = require('./prompts.cjs');
 const { searchWeb } = require('./tools/web-search.cjs');
 const { fetchWebpage } = require('./tools/web-fetch.cjs');
@@ -48,6 +48,7 @@ class AgentOrchestrator {
     this.pendingQuestions = new Map(); // questionId -> { resolve, reject }
     this.pendingTakeovers = new Map(); // takeoverId -> { resolve, reject }
     this.activeSchedules = new Map();  // scheduleId -> timer / cron interval
+    this.activePlans = new Map();      // sessionId -> { planTitle, tasks: [...], updatedAt }
   }
 
   /**
@@ -93,6 +94,7 @@ class AgentOrchestrator {
     onToolResult,
     onAskQuestion,
     onBrowserTakeover,
+    onTaskPlanUpdate,
     onFallback,
     signal
   }) {
@@ -204,7 +206,8 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
             sessionId,
             signal,
             onAskQuestion,
-            onBrowserTakeover
+            onBrowserTakeover,
+            onTaskPlanUpdate
           });
         } catch (err) {
           output = { error: err.message };
@@ -265,10 +268,12 @@ Do NOT attempt to invoke any further tools. Present the solution or findings dir
       }
     }
 
+    const activePlan = sessionId ? this.activePlans.get(sessionId) : null;
     return {
       content: accumulatedContent,
       thought: accumulatedThought,
       tools: executedToolsLog,
+      plan: activePlan || null,
       provider: {
         id: usedProvider?.id,
         name: usedProvider?.name,
@@ -277,10 +282,199 @@ Do NOT attempt to invoke any further tools. Present the solution or findings dir
     };
   }
 
+  async _runSubagentWorker(sa, ctx) {
+    const { workspacePath, sessionId, signal } = ctx;
+    const startTime = Date.now();
+    const role = sa.Role || 'researcher';
+    const typeName = sa.TypeName || role;
+    const maxSubSteps = 15;
+    let subStep = 0;
+
+    const subTools = getSubagentTools(role, Boolean(workspacePath));
+    const currentDateStr = new Date().toISOString().split('T')[0];
+
+    const subSystemPrompt = `You are an elite, specialized ${role} subagent for Eyqa.
+Title: ${typeName}
+Current Real-World Date: ${currentDateStr}
+Assignment: ${sa.Prompt}
+
+STRICT SUBAGENT OPERATIONAL DIRECTIVES:
+1. Real Tool Execution: You have direct access to live tools (${subTools.map(t => t.function.name).join(', ')}). PROACTIVELY USE THEM to search the web, fetch pages, inspect workspace files, or run commands.
+2. Fact-Checking & Zero-Hallucination: Never fabricate facts, dates, links, or documentation. Ground all findings strictly in real tool outputs.
+3. Search Depth: Run searches, fetch the most relevant page contents to extract deep facts, and cross-reference information.
+4. Exhaustive Report: When you finish gathering all necessary information, deliver your final, comprehensive, publication-grade findings report.`;
+
+    const subHistory = [
+      { role: 'user', content: sa.Prompt }
+    ];
+
+    let accumulatedSubContent = '';
+    const executedSubTools = [];
+
+    try {
+      while (subStep < maxSubSteps) {
+        if (signal?.aborted) break;
+
+        const subResult = await this.providerManager.streamWithFallback({
+          preferredProviderId: this.configStore.get().activeProviderId || 'groq',
+          messages: subHistory,
+          systemPrompt: subSystemPrompt,
+          enableTools: subTools.length > 0,
+          customTools: subTools,
+          signal
+        });
+
+        const toolCalls = subResult.toolCalls || [];
+        if (toolCalls.length === 0) {
+          accumulatedSubContent = subResult.content || '';
+          break;
+        }
+
+        subStep++;
+        subHistory.push({
+          role: 'assistant',
+          content: subResult.content || '',
+          tool_calls: toolCalls
+        });
+
+        for (const call of toolCalls) {
+          if (signal?.aborted) break;
+          let output;
+          try {
+            output = await this._executeTool(call.name, call.arguments, {
+              workspacePath,
+              sessionId,
+              signal
+            });
+          } catch (err) {
+            output = { error: err.message };
+          }
+
+          executedSubTools.push({
+            name: call.name,
+            arguments: call.arguments,
+            output
+          });
+
+          subHistory.push({
+            role: 'tool',
+            tool_call_id: call.id,
+            name: call.name,
+            content: typeof output === 'string' ? output : JSON.stringify(output)
+          });
+        }
+      }
+
+      // If loop finished without substantive content, do a final synthesis pass
+      if (!signal?.aborted && (!accumulatedSubContent || accumulatedSubContent.trim().length === 0)) {
+        const finalPass = await this.providerManager.streamWithFallback({
+          preferredProviderId: this.configStore.get().activeProviderId || 'groq',
+          messages: subHistory,
+          systemPrompt: subSystemPrompt + `\n\n[FINAL SYNTHESIS MANDATE]: You have executed ${executedSubTools.length} tool actions. Synthesize all gathered data into a thorough, exhaustive, publication-grade findings report. Deliver your findings now with no further tool calls.`,
+          enableTools: false,
+          signal
+        });
+        accumulatedSubContent = finalPass.content || '';
+      }
+
+      return {
+        role,
+        typeName,
+        status: 'completed',
+        toolStepsCount: subStep,
+        toolsUsed: executedSubTools.map(t => t.name),
+        findings: accumulatedSubContent,
+        executionTimeMs: Date.now() - startTime
+      };
+    } catch (err) {
+      return {
+        role,
+        typeName,
+        status: 'error',
+        toolStepsCount: subStep,
+        toolsUsed: executedSubTools.map(t => t.name),
+        error: err.message,
+        executionTimeMs: Date.now() - startTime
+      };
+    }
+  }
+
   async _executeTool(name, args, ctx) {
-    const { workspacePath, sessionId, signal, onAskQuestion, onBrowserTakeover } = ctx;
+    const { workspacePath, sessionId, signal, onAskQuestion, onBrowserTakeover, onTaskPlanUpdate } = ctx;
 
     switch (name) {
+      // 0. Mission Planning & Milestone Checklist (Anti-Hallucination Guard)
+      case 'track_task_plan': {
+        const planTitle = args?.planTitle || 'Mission Execution Plan';
+        const tasks = (args?.tasks || []).map((t, idx) => ({
+          id: t.id || `task-${idx + 1}`,
+          title: t.title || `Milestone ${idx + 1}`,
+          status: ['pending', 'in_progress', 'completed', 'failed'].includes(t.status) ? t.status : 'pending',
+          details: t.details || ''
+        }));
+        const plan = {
+          planTitle,
+          tasks,
+          updatedAt: Date.now()
+        };
+        if (sessionId) {
+          this.activePlans.set(sessionId, plan);
+        }
+        if (onTaskPlanUpdate) {
+          onTaskPlanUpdate(plan);
+        }
+        return {
+          status: 'plan_tracked',
+          planTitle,
+          tasksCount: tasks.length,
+          tasks
+        };
+      }
+
+      case 'update_task_status': {
+        const taskId = args?.taskId;
+        const status = args?.status || 'completed';
+        const resultSummary = args?.resultSummary || '';
+        let plan = sessionId ? this.activePlans.get(sessionId) : null;
+        if (!plan) {
+          plan = {
+            planTitle: 'Mission Execution Plan',
+            tasks: [],
+            updatedAt: Date.now()
+          };
+          if (sessionId) this.activePlans.set(sessionId, plan);
+        }
+
+        const task = plan.tasks.find(t => t.id === taskId);
+        if (task) {
+          task.status = status;
+          if (resultSummary) {
+            task.details = resultSummary;
+          }
+        } else {
+          plan.tasks.push({
+            id: taskId,
+            title: taskId,
+            status,
+            details: resultSummary
+          });
+        }
+        plan.updatedAt = Date.now();
+        if (onTaskPlanUpdate) {
+          onTaskPlanUpdate(plan);
+        }
+
+        const completedCount = plan.tasks.filter(t => t.status === 'completed').length;
+        return {
+          status: 'status_updated',
+          taskId,
+          newStatus: status,
+          resultSummary,
+          completedCount,
+          totalCount: plan.tasks.length
+        };
+      }
+
       // 1. Web & Browser Tools
       case 'web_search': {
         const query = args?.query || '';
@@ -459,41 +653,13 @@ Do NOT attempt to invoke any further tools. Present the solution or findings dir
         });
       }
 
-      // 6. Subagent Swarms
+      // 6. Subagent Swarms with Autonomous Tool Loops
       case 'invoke_subagent': {
         const subagents = args?.Subagents || [];
         if (subagents.length === 0) return { error: 'No Subagents specified.' };
 
         const results = await Promise.all(
-          subagents.map(async (sa) => {
-            const startTime = Date.now();
-            try {
-              const subPrompt = `[Subagent: ${sa.Role} - ${sa.TypeName || sa.Role}]\n${sa.Prompt}`;
-              const subResult = await this.providerManager.streamWithFallback({
-                preferredProviderId: this.configStore.get().activeProviderId || 'groq',
-                messages: [{ role: 'user', content: subPrompt }],
-                systemPrompt: `You are an elite, specialized ${sa.Role} subagent for Eyqa. Provide exhaustive, rigorous, un-truncated findings.`,
-                enableTools: false,
-                signal
-              });
-
-              return {
-                role: sa.Role,
-                typeName: sa.TypeName || sa.Role,
-                status: 'completed',
-                findings: subResult.content,
-                executionTimeMs: Date.now() - startTime
-              };
-            } catch (err) {
-              return {
-                role: sa.Role,
-                typeName: sa.TypeName || sa.Role,
-                status: 'error',
-                error: err.message,
-                executionTimeMs: Date.now() - startTime
-              };
-            }
-          })
+          subagents.map(sa => this._runSubagentWorker(sa, ctx))
         );
 
         return {

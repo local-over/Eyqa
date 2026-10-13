@@ -540,6 +540,9 @@ class EyqaApp {
     if (this.runningTurns && this.runningTurns.has(id)) {
       const turn = this.runningTurns.get(id);
       this.chatView.startStream(null);
+      if (turn.plan) {
+        this.chatView.updateTaskPlan(turn.plan);
+      }
       if (turn.accumulatedThought) {
         this.chatView.appendThought(turn.accumulatedThought);
       }
@@ -1137,7 +1140,8 @@ class EyqaApp {
       startTime: Date.now(),
       accumulatedContent: '',
       accumulatedThought: '',
-      tools: []
+      tools: [],
+      plan: null
     };
     this.runningTurns.set(targetSessionId, turnState);
     this.renderSidebarLists();
@@ -1219,6 +1223,15 @@ class EyqaApp {
             this.chatView.renderBrowserTakeoverCard(takeover);
           }
         },
+        onTaskPlanUpdate: (planData) => {
+          const sId = (typeof planData === 'object' && planData?.sessionId) ? planData.sessionId : targetSessionId;
+          const plan = (typeof planData === 'object' && planData?.plan !== undefined) ? planData.plan : planData;
+          const t = this.runningTurns.get(sId);
+          if (t) t.plan = plan;
+          if (this.currentSession?.id === sId) {
+            this.chatView.updateTaskPlan(plan);
+          }
+        },
         onFallback: () => {
           // Silent background failover without disrupting chat
         }
@@ -1228,6 +1241,7 @@ class EyqaApp {
       const finalContent = response?.result?.content || t?.accumulatedContent || '';
       const finalThought = response?.result?.thought || t?.accumulatedThought || '';
       const finalTools = response?.result?.tools || t?.tools || [];
+      const finalPlan = response?.result?.plan || t?.plan || null;
 
       if (response && response.result) {
         const assistantMessage = {
@@ -1235,6 +1249,7 @@ class EyqaApp {
           content: finalContent,
           thought: finalThought,
           tools: finalTools,
+          plan: finalPlan,
           provider: response.result.provider,
           timestamp: Date.now()
         };

@@ -282,6 +282,8 @@ export class ChatView {
               ` : ''}
             </div>
 
+            ${msg.plan && Array.isArray(msg.plan.tasks) && msg.plan.tasks.length > 0 ? this._renderTaskPlanHtml(msg.plan, false) : ''}
+
             ${hasProcess ? `
               <div class="turn-process-wrapper is-folded">
                 <button class="turn-process-header" type="button" title="Click to view actions and decisions">
@@ -325,6 +327,71 @@ export class ChatView {
     }
 
     return '';
+  }
+
+  _renderTaskPlanHtml(plan, isStreaming = false) {
+    if (!plan || !Array.isArray(plan.tasks) || plan.tasks.length === 0) return '';
+    const completedCount = plan.tasks.filter(t => t.status === 'completed').length;
+    const totalCount = plan.tasks.length;
+    const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+    const title = this._escape(plan.planTitle || 'Mission Execution Plan');
+
+    return `
+      <div class="task-plan-card ${pct === 100 ? 'is-completed' : ''}">
+        <div class="task-plan-header">
+          <div class="task-plan-title-box">
+            <span class="task-plan-icon">${icons.checklist || '📋'}</span>
+            <span class="task-plan-title">${title}</span>
+          </div>
+          <div class="task-plan-meta">
+            <span class="task-plan-counter">${completedCount} / ${totalCount} completed</span>
+            <span class="task-plan-percent">${pct}%</span>
+          </div>
+        </div>
+        <div class="task-plan-progress-track">
+          <div class="task-plan-progress-bar" style="width: ${pct}%"></div>
+        </div>
+        <div class="task-plan-items">
+          ${plan.tasks.map(t => this._renderTaskItemHtml(t)).join('')}
+        </div>
+      </div>
+    `;
+  }
+
+  _renderTaskItemHtml(task) {
+    const status = task.status || 'pending';
+    let statusLabel = 'Pending';
+    let statusClass = 'status-pending';
+    let iconSymbol = '<span class="status-dot"></span>';
+
+    if (status === 'in_progress') {
+      statusLabel = 'In Progress';
+      statusClass = 'status-in-progress';
+      iconSymbol = '<span class="status-spinner"></span>';
+    } else if (status === 'completed') {
+      statusLabel = 'Completed';
+      statusClass = 'status-completed';
+      iconSymbol = '<span class="status-check">✓</span>';
+    } else if (status === 'failed') {
+      statusLabel = 'Failed';
+      statusClass = 'status-failed';
+      iconSymbol = '<span class="status-cross">✕</span>';
+    }
+
+    const title = this._escape(task.title || task.id || 'Milestone');
+    const details = task.details ? `<div class="task-item-details">${this._escape(task.details)}</div>` : '';
+
+    return `
+      <div class="task-plan-item status-${status}">
+        <div class="task-plan-item-row">
+          <div class="task-plan-item-left">
+            <span class="task-item-title">${title}</span>
+          </div>
+          <span class="task-status-pill ${statusClass}">${iconSymbol} ${statusLabel}</span>
+        </div>
+        ${details}
+      </div>
+    `;
   }
 
   _renderToolStep(tool) {
@@ -371,7 +438,12 @@ export class ChatView {
       `;
     }
 
-    const icon = (isSearch || isFetch || isBrowser) ? icons.globe
+    const isSubagent = toolName === 'invoke_subagent';
+    const isPlan = toolName === 'track_task_plan' || toolName === 'update_task_status';
+
+    const icon = isSubagent ? (icons.users || icons.sparkles)
+               : isPlan ? (icons.checklist || icons.sparkles)
+               : (isSearch || isFetch || isBrowser) ? icons.globe
                : isTerminal ? (icons.terminal || icons.code)
                : isCode ? icons.code
                : isImage ? (icons.image || icons.sparkles)
@@ -380,7 +452,10 @@ export class ChatView {
 
     const target = tool.arguments?.query || tool.arguments?.filePath || tool.arguments?.CommandLine || tool.arguments?.TargetFile || tool.arguments?.AbsolutePath || tool.arguments?.url || tool.query || tool.target || '';
     
-    let label = isSearch ? `Web Search: "${target}"`
+    let label = isSubagent ? `Subagent Swarm (${tool.arguments?.Subagents?.length || tool.output?.subagentsCount || 1} agents)`
+              : toolName === 'track_task_plan' ? `Mission Plan: "${tool.arguments?.planTitle || 'Task Roadmap'}"`
+              : toolName === 'update_task_status' ? `Milestone ${tool.arguments?.taskId}: ${tool.arguments?.status}`
+              : isSearch ? `Web Search: "${target}"`
               : isFetch ? `Web Fetch: ${target}`
               : isBrowser ? `Chromium: ${toolName} ${target}`
               : isTerminal ? `Terminal: ${target || tool.arguments?.Action || ''}`
@@ -390,7 +465,21 @@ export class ChatView {
               : `Tool: ${toolName}${target ? ` (${target})` : ''}`;
 
     let detailsHtml = '';
-    if (tool.output?.diff) {
+    if (isSubagent && tool.output?.results) {
+      detailsHtml = `
+        <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;">
+          ${tool.output.results.map(r => `
+            <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:6px 8px;">
+              <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                <span style="font-weight:600; color:#fff; font-size:11.5px;">${this._escape(r.typeName || r.role)} (${r.role})</span>
+                <span style="font-size:10px; color:${r.status === 'completed' ? '#4ade80' : '#f87171'};">${r.status} • ${r.toolStepsCount || 0} tool steps • ${r.executionTimeMs}ms</span>
+              </div>
+              <div style="font-size:11px; color:#a1a1aa; max-height:120px; overflow-y:auto; line-height:1.4;">${this._escape(r.findings ? r.findings.slice(0, 300) + (r.findings.length > 300 ? '...' : '') : r.error || '')}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    } else if (tool.output?.diff) {
       detailsHtml = `<pre style="color: #38bdf8; margin: 4px 0 0 0;">${this._escape(tool.output.diff)}</pre>`;
     } else if (tool.output?.dataUrl) {
       detailsHtml = `<div style="margin-top:6px;"><img src="${tool.output.dataUrl}" style="max-width:100%; border-radius:6px; border:1px solid rgba(255,255,255,0.1);" /></div>`;
@@ -476,6 +565,23 @@ export class ChatView {
           </div>
         </div>
 
+        <div class="task-plan-card" id="streamTaskPlanCard" hidden>
+          <div class="task-plan-header">
+            <div class="task-plan-title-box">
+              <span class="task-plan-icon">${icons.checklist || '📋'}</span>
+              <span class="task-plan-title" id="streamTaskPlanTitle">Mission Execution Plan</span>
+            </div>
+            <div class="task-plan-meta">
+              <span class="task-plan-counter" id="streamTaskPlanCounter">0 / 0 completed</span>
+              <span class="task-plan-percent" id="streamTaskPlanPercent">0%</span>
+            </div>
+          </div>
+          <div class="task-plan-progress-track">
+            <div class="task-plan-progress-bar" id="streamTaskPlanBar" style="width: 0%"></div>
+          </div>
+          <div class="task-plan-items" id="streamTaskPlanItems"></div>
+        </div>
+
         <div class="turn-process-wrapper" id="streamProcessWrapper" hidden>
           <button class="turn-process-header" id="streamProcessHeader" type="button" title="Click to expand/fold actions">
             <div class="process-header-left">
@@ -509,6 +615,8 @@ export class ChatView {
     this.streamingThoughtStep = assistantRow.querySelector('#streamThoughtStep');
     this.streamingToolsList = assistantRow.querySelector('#streamToolsList');
     this.streamingContentEl = assistantRow.querySelector('#streamContentBox');
+    this.streamingTaskPlanCard = assistantRow.querySelector('#streamTaskPlanCard');
+    this._activeTaskPlan = null;
 
     // Attach stream header toggle
     const streamHeader = assistantRow.querySelector('#streamProcessHeader');
@@ -545,6 +653,40 @@ export class ChatView {
     summaryEl.textContent = summaryText;
   }
 
+  updateTaskPlan(plan) {
+    if (!plan || !Array.isArray(plan.tasks)) return;
+    this._activeTaskPlan = plan;
+
+    if (!this.streamingTaskPlanCard) {
+      if (this.streamingAssistantEl) {
+        this.streamingTaskPlanCard = this.streamingAssistantEl.querySelector('#streamTaskPlanCard');
+      }
+    }
+
+    if (this.streamingTaskPlanCard) {
+      this.streamingTaskPlanCard.hidden = false;
+      const titleEl = this.streamingTaskPlanCard.querySelector('#streamTaskPlanTitle');
+      const counterEl = this.streamingTaskPlanCard.querySelector('#streamTaskPlanCounter');
+      const percentEl = this.streamingTaskPlanCard.querySelector('#streamTaskPlanPercent');
+      const barEl = this.streamingTaskPlanCard.querySelector('#streamTaskPlanBar');
+      const itemsEl = this.streamingTaskPlanCard.querySelector('#streamTaskPlanItems');
+
+      const completedCount = plan.tasks.filter(t => t.status === 'completed').length;
+      const totalCount = plan.tasks.length;
+      const pct = totalCount > 0 ? Math.round((completedCount / totalCount) * 100) : 0;
+
+      if (titleEl) titleEl.textContent = plan.planTitle || 'Mission Execution Plan';
+      if (counterEl) counterEl.textContent = `${completedCount} / ${totalCount} completed`;
+      if (percentEl) percentEl.textContent = `${pct}%`;
+      if (barEl) barEl.style.width = `${pct}%`;
+      if (itemsEl) {
+        itemsEl.innerHTML = plan.tasks.map(t => this._renderTaskItemHtml(t)).join('');
+      }
+
+      this.scrollToBottom();
+    }
+  }
+
   appendThought(thought) {
     this.accumulatedThought += thought;
     if (this.streamingProcessWrapper && this.streamingThoughtStep) {
@@ -573,8 +715,12 @@ export class ChatView {
     const isFile = toolName === 'view_file' || toolName.startsWith('workspace_');
     const isImage = toolName === 'generate_image';
     const isQuestion = toolName === 'ask_question';
+    const isSubagent = toolName === 'invoke_subagent';
+    const isPlan = toolName === 'track_task_plan' || toolName === 'update_task_status';
 
-    const icon = (isSearch || isFetch || isBrowser) ? icons.globe
+    const icon = isSubagent ? (icons.users || icons.sparkles)
+               : isPlan ? (icons.checklist || icons.sparkles)
+               : (isSearch || isFetch || isBrowser) ? icons.globe
                : isTerminal ? (icons.terminal || icons.code)
                : isCode ? icons.code
                : isImage ? (icons.image || icons.sparkles)
@@ -583,7 +729,10 @@ export class ChatView {
 
     const target = toolInfo.arguments?.query || toolInfo.arguments?.filePath || toolInfo.arguments?.CommandLine || toolInfo.arguments?.TargetFile || toolInfo.arguments?.AbsolutePath || toolInfo.arguments?.url || '';
 
-    let label = isSearch ? `Web Search: "${target}"`
+    let label = isSubagent ? `Subagent Swarm (${toolInfo.arguments?.Subagents?.length || 1} agents)`
+              : toolName === 'track_task_plan' ? `Mission Plan: "${toolInfo.arguments?.planTitle || 'Task Roadmap'}"`
+              : toolName === 'update_task_status' ? `Milestone ${toolInfo.arguments?.taskId}: ${toolInfo.arguments?.status}`
+              : isSearch ? `Web Search: "${target}"`
               : isFetch ? `Web Fetch: ${target}`
               : isBrowser ? `Chromium: ${toolName}`
               : isTerminal ? `Terminal: ${target}`
@@ -638,6 +787,21 @@ export class ChatView {
         } else if (resInfo.output.diff) {
           detailsEl.hidden = false;
           detailsEl.innerHTML = `<pre style="color: #38bdf8; margin: 4px 0 0 0;">${this._escape(resInfo.output.diff)}</pre>`;
+        } else if (resInfo.output.results && Array.isArray(resInfo.output.results)) {
+          detailsEl.hidden = false;
+          detailsEl.innerHTML = `
+            <div style="display:flex; flex-direction:column; gap:6px; margin-top:6px;">
+              ${resInfo.output.results.map(r => `
+                <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(255,255,255,0.06); border-radius:6px; padding:6px 8px;">
+                  <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:4px;">
+                    <span style="font-weight:600; color:#fff; font-size:11.5px;">${this._escape(r.typeName || r.role)} (${r.role})</span>
+                    <span style="font-size:10px; color:${r.status === 'completed' ? '#4ade80' : '#f87171'};">${r.status} • ${r.toolStepsCount || 0} tool steps • ${r.executionTimeMs}ms</span>
+                  </div>
+                  <div style="font-size:11px; color:#a1a1aa; max-height:120px; overflow-y:auto; line-height:1.4;">${this._escape(r.findings ? r.findings.slice(0, 300) + (r.findings.length > 300 ? '...' : '') : r.error || '')}</div>
+                </div>
+              `).join('')}
+            </div>
+          `;
         }
       }
     }

@@ -425,6 +425,9 @@ export const api = {
       if (handlers.onBrowserTakeover && window.eyqaApi.onBrowserTakeover) {
         unsubs.push(window.eyqaApi.onBrowserTakeover(handlers.onBrowserTakeover));
       }
+      if (handlers.onTaskPlanUpdate && window.eyqaApi.onTaskPlanUpdate) {
+        unsubs.push(window.eyqaApi.onTaskPlanUpdate(handlers.onTaskPlanUpdate));
+      }
 
       try {
         const res = await window.eyqaApi.startTurn(payload);
