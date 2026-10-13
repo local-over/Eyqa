@@ -1266,19 +1266,38 @@ export class SettingsView {
             <div class="section-card-title">Installed AI Skills</div>
             <div class="section-card-desc">Domain-specific workflows following the standard SKILL.md specification.</div>
           </div>
-          <span style="font-size: 12px; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 12px;">${skills.length} Installed</span>
+          <span style="font-size: 12px; color: var(--text-secondary); background: rgba(255,255,255,0.06); padding: 4px 10px; border-radius: 12px;">${skills.length} Available</span>
         </div>
 
         <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-top: 14px;">
-          ${skills.map(s => `
-            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px;">
-              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                <strong style="color: #fff; font-size: 14px;">${this._escape(s.name)}</strong>
-                <span style="font-size: 11px; text-transform: uppercase; background: rgba(255,255,255,0.08); padding: 2px 7px; border-radius: 8px; color: var(--text-secondary);">${this._escape(s.scope || 'global')}</span>
+          ${skills.map(s => {
+            const isBuiltin = Boolean(s.isBuiltin);
+            return `
+            <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-subtle); border-radius: 12px; padding: 14px; display: flex; flex-direction: column; justify-content: space-between;">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                  <strong style="color: #fff; font-size: 14px;">${this._escape(s.name)}</strong>
+                  <div style="display: flex; gap: 6px; align-items: center;">
+                    ${isBuiltin
+                      ? `<span style="font-size: 10px; font-weight: 500; text-transform: uppercase; background: rgba(56, 189, 248, 0.12); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.25); padding: 2px 7px; border-radius: 8px;">Built-in</span>`
+                      : `<span style="font-size: 10px; font-weight: 500; text-transform: uppercase; background: rgba(34, 197, 94, 0.12); color: #4ade80; border: 1px solid rgba(34, 197, 94, 0.25); padding: 2px 7px; border-radius: 8px;">Installed</span>`
+                    }
+                    <span style="font-size: 10px; text-transform: uppercase; background: rgba(255,255,255,0.06); padding: 2px 6px; border-radius: 6px; color: var(--text-secondary);">${this._escape(s.scope || 'global')}</span>
+                  </div>
+                </div>
+                <p style="font-size: 12.5px; color: var(--text-secondary); margin: 0; line-height: 1.4;">${this._escape(s.description)}</p>
               </div>
-              <p style="font-size: 12.5px; color: var(--text-secondary); margin: 0; line-height: 1.4;">${this._escape(s.description)}</p>
+
+              ${!isBuiltin ? `
+                <div style="margin-top: 12px; display: flex; justify-content: flex-end;">
+                  <button type="button" class="btn-uninstall-skill" data-name="${this._escape(s.name)}" style="background: rgba(239, 68, 68, 0.08); border: 1px solid rgba(239, 68, 68, 0.25); color: #f87171; border-radius: 6px; padding: 4px 10px; font-size: 11.5px; cursor: pointer; display: flex; align-items: center; gap: 5px; transition: all 0.15s ease;">
+                    ${icons.trash || '🗑️'} <span>Uninstall</span>
+                  </button>
+                </div>
+              ` : ''}
             </div>
-          `).join('')}
+            `;
+          }).join('')}
         </div>
       </div>
 
@@ -1288,7 +1307,7 @@ export class SettingsView {
         <div class="section-card-desc">Discover and install specialized AI skills for document generation, analysis, or devops.</div>
 
         <div style="display: flex; gap: 10px; margin-top: 14px;">
-          <input type="text" class="input-text" id="skillsHubSearchInput" placeholder="Search skills (e.g. dare-engine, pdf, seo, git, sql, ui)..." style="flex: 1;" />
+          <input type="text" class="input-text" id="skillsHubSearchInput" placeholder="Search skills (e.g. pdf, seo, git, sql, ui, latex)..." style="flex: 1;" />
           <button class="primary-btn btn-search-skills-hub" style="white-space: nowrap;">
             ${icons.globe} Search Hub
           </button>
@@ -1837,6 +1856,32 @@ export class SettingsView {
     searchHubBtn?.addEventListener('click', executeHubSearch);
     searchHubInput?.addEventListener('keydown', (e) => {
       if (e.key === 'Enter') executeHubSearch();
+    });
+
+    this.container.querySelectorAll('.btn-uninstall-skill').forEach(btn => {
+      btn.addEventListener('click', async (e) => {
+        const skillName = e.currentTarget.dataset.name;
+        if (!skillName) return;
+        btn.disabled = true;
+        btn.innerHTML = `<span>Uninstalling...</span>`;
+
+        try {
+          const res = await api.uninstallSkill(skillName, this.activeProjectId);
+          if (res && res.success) {
+            if (this.onNotification) this.onNotification(`Skill "${skillName}" uninstalled successfully.`, 'success');
+            this.installedSkills = await api.listSkills(this.activeProjectId);
+            this.render();
+          } else {
+            btn.disabled = false;
+            btn.innerHTML = `${icons.trash || '🗑️'} <span>Uninstall</span>`;
+            if (this.onNotification) this.onNotification(res?.error || 'Failed to uninstall skill.', 'error');
+          }
+        } catch (err) {
+          btn.disabled = false;
+          btn.innerHTML = `${icons.trash || '🗑️'} <span>Uninstall</span>`;
+          if (this.onNotification) this.onNotification(`Error: ${err.message}`, 'error');
+        }
+      });
     });
 
     // --- Preferences Tab Events ---

@@ -118,6 +118,7 @@ ${skill.instructions}
             const raw = fs.readFileSync(skillFile, 'utf8');
             const parsed = this._parseSkillMd(raw, entry.name, skillFile);
             parsed.scope = scope;
+            parsed.isBuiltin = BUILTIN_SKILLS.some(b => b.name.toLowerCase() === parsed.name.toLowerCase());
             outArray.push(parsed);
           }
         }
@@ -274,6 +275,58 @@ When executing tasks requiring ${sanitizedName}:
       skillName: sanitizedName,
       path: targetFile,
       message: `Skill "${sanitizedName}" installed successfully. Ready to use!`
+    };
+  }
+
+  /**
+   * Uninstalls a non-builtin skill from global or project directory
+   */
+  async uninstallSkill({ skillName, workspacePath = null }) {
+    if (!skillName) return { success: false, error: 'skillName is required' };
+
+    const sanitizedName = skillName.toLowerCase().replace(/[^a-z0-9_-]/g, '-');
+    const isBuiltin = BUILTIN_SKILLS.some(b => b.name.toLowerCase() === sanitizedName);
+    if (isBuiltin) {
+      return { success: false, error: 'Cannot uninstall built-in system skills.' };
+    }
+
+    let deleted = false;
+
+    // 1. Check global directory
+    const globalFolder = path.join(this.skillsDir, sanitizedName);
+    if (fs.existsSync(globalFolder)) {
+      try {
+        fs.rmSync(globalFolder, { recursive: true, force: true });
+        deleted = true;
+      } catch (err) {
+        return { success: false, error: `Failed to remove global skill: ${err.message}` };
+      }
+    }
+
+    // 2. Check project directory if supplied
+    if (workspacePath) {
+      const projFolder = path.join(workspacePath, '.eyqa', 'skills', sanitizedName);
+      if (fs.existsSync(projFolder)) {
+        try {
+          fs.rmSync(projFolder, { recursive: true, force: true });
+          deleted = true;
+        } catch (err) {
+          return { success: false, error: `Failed to remove project skill: ${err.message}` };
+        }
+      }
+    }
+
+    if (deleted) {
+      return {
+        success: true,
+        skillName: sanitizedName,
+        message: `Skill "${sanitizedName}" uninstalled successfully.`
+      };
+    }
+
+    return {
+      success: false,
+      error: `Skill "${sanitizedName}" was not found or is already removed.`
     };
   }
 

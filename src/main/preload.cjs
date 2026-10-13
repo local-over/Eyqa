@@ -98,6 +98,12 @@ contextBridge.exposeInMainWorld('eyqaApi', {
     ipcRenderer.on('agent:browser-takeover', handler);
     return () => ipcRenderer.removeListener('agent:browser-takeover', handler);
   },
+  onFocusSession: (callback) => {
+    const handler = (_, sessionId) => callback(sessionId);
+    ipcRenderer.on('app:focus-session', handler);
+    return () => ipcRenderer.removeListener('app:focus-session', handler);
+  },
+  showNotification: (title, body, sessionId) => ipcRenderer.invoke('notification:show', title, body, sessionId),
 
   // Browser Takeover & Human Assistance
   takeBrowserControl: () => ipcRenderer.invoke('browser:takeControl'),
@@ -117,6 +123,7 @@ contextBridge.exposeInMainWorld('eyqaApi', {
   listSkills: (projectId) => ipcRenderer.invoke('skills:list', projectId),
   searchSkillsHub: (query) => ipcRenderer.invoke('skills:searchHub', query),
   installSkill: (payload) => ipcRenderer.invoke('skills:install', payload),
+  uninstallSkill: (payload) => ipcRenderer.invoke('skills:uninstall', payload),
 
   // Embedded FCC Background Service
   getFCCStatus: () => ipcRenderer.invoke('fcc:getStatus'),

@@ -142,7 +142,7 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
       conversationHistory.push({ role: 'user', content: userMessage });
     }
 
-    const MAX_TOOL_STEPS = 10;
+    const MAX_TOOL_STEPS = 30;
     let toolStep = 0;
 
     let accumulatedContent = '';
@@ -232,6 +232,36 @@ Output the complete, self-contained HTML/CSS/JavaScript inside a \`\`\`widget (o
           name: call.name,
           content: typeof output === 'string' ? output : JSON.stringify(output)
         });
+      }
+    }
+
+    // Guaranteed Synthesis Pass: If all tool steps finished (or limit reached) but no substantive text was output,
+    // force a final completion turn with tools disabled so the model synthesizes all gathered results into the user's answer.
+    if (!signal?.aborted && accumulatedContent.trim().length === 0 && executedToolsLog.length > 0) {
+      const synthesisPrompt = systemPrompt + `\n\n[SYNTHESIS MANDATE]:
+You have completed ${executedToolsLog.length} action(s) (research, tools, workspace operations).
+Now deliver your complete, comprehensive, publication-grade final response to the user synthesizing all findings.
+Do NOT attempt to invoke any further tools. Present the solution or findings directly and thoroughly.`;
+
+      const finalResult = await this.providerManager.streamWithFallback({
+        preferredProviderId: effectiveProviderId,
+        messages: conversationHistory,
+        systemPrompt: synthesisPrompt,
+        enableTools: false,
+        onToken: (tok) => {
+          accumulatedContent += tok;
+          if (onToken) onToken(tok);
+        },
+        onThought: (th) => {
+          accumulatedThought += th;
+          if (onThought) onThought(th);
+        },
+        onFallback,
+        signal
+      });
+
+      if (finalResult.usedProvider) {
+        usedProvider = finalResult.usedProvider;
       }
     }
 

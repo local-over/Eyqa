@@ -3,7 +3,7 @@
  * Manages native window lifecycle, IPC communications, and agent execution.
  */
 
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Tray, Menu, Notification, nativeImage } = require('electron');
 const path = require('node:path');
 const fs = require('node:fs');
 
@@ -43,13 +43,157 @@ const { getSkillsManager } = require('./agent/tools/skills.cjs');
 const { fccService } = require('./fcc-service.cjs');
 
 let mainWindow = null;
+let appTray = null;
+let isQuitting = false;
 const activeTurnControllers = new Map();
+const activeTaskMeta = new Map(); // sessionId -> { title, startTime }
 
 // Initialize Storage and Engines
 const configStore = new ConfigStore();
 const sessionStore = new SessionStore();
 const providerManager = new ProviderManager(configStore);
 const orchestrator = new AgentOrchestrator(providerManager, configStore);
+
+function formatElapsed(startTime) {
+  const sec = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+  const m = Math.floor(sec / 60);
+  const s = sec % 60;
+  return m > 0 ? `${m}m ${s < 10 ? '0' : ''}${s}s` : `${s}s`;
+}
+
+function dispatchNativeNotification(title, body, sessionId = null) {
+  try {
+    if (Notification.isSupported()) {
+      const iconPath = path.join(__dirname, '../renderer/assets/eyqa-logo.png');
+      const notif = new Notification({
+        title,
+        body,
+        icon: fs.existsSync(iconPath) ? iconPath : undefined,
+        silent: false
+      });
+      notif.on('click', () => {
+        if (mainWindow) {
+          mainWindow.show();
+          mainWindow.focus();
+          if (sessionId) {
+            mainWindow.webContents.send('app:focus-session', sessionId);
+          }
+        }
+      });
+      notif.show();
+    }
+  } catch (err) {
+    console.warn('[Notification] Failed to show native notification:', err.message);
+  }
+}
+
+function updateTrayMenu() {
+  if (!appTray) return;
+
+  const menuItems = [
+    {
+      label: 'Eyqa - The AI Coworker',
+      enabled: false
+    },
+    {
+      label: mainWindow && mainWindow.isVisible() ? 'Hide Window' : 'Open Eyqa',
+      click: () => {
+        if (!mainWindow) return;
+        if (mainWindow.isVisible()) {
+          mainWindow.hide();
+        } else {
+          mainWindow.show();
+          mainWindow.focus();
+        }
+      }
+    },
+    { type: 'separator' }
+  ];
+
+  if (activeTaskMeta.size === 0) {
+    menuItems.push({
+      label: 'No active chat tasks running',
+      enabled: false
+    });
+  } else {
+    menuItems.push({
+      label: `Active Chats Working (${activeTaskMeta.size}):`,
+      enabled: false
+    });
+    for (const [sId, meta] of activeTaskMeta.entries()) {
+      menuItems.push({
+        label: `  ⚡ ${meta.title} (${formatElapsed(meta.startTime)})`,
+        click: () => {
+          if (mainWindow) {
+            mainWindow.show();
+            mainWindow.focus();
+            mainWindow.webContents.send('app:focus-session', sId);
+          }
+        }
+      });
+    }
+  }
+
+  menuItems.push(
+    { type: 'separator' },
+    {
+      label: 'Quit Eyqa',
+      click: () => {
+        isQuitting = true;
+        app.quit();
+      }
+    }
+  );
+
+  appTray.setContextMenu(Menu.buildFromTemplate(menuItems));
+
+  if (activeTaskMeta.size > 0) {
+    appTray.setToolTip(`Eyqa: ${activeTaskMeta.size} active chat(s) running in background`);
+  } else {
+    appTray.setToolTip('Eyqa - The AI Coworker');
+  }
+}
+
+function createTray() {
+  if (appTray) return;
+
+  const iconPath = path.join(__dirname, '../renderer/assets/eyqa-logo.png');
+  let icon = null;
+  try {
+    if (fs.existsSync(iconPath)) {
+      icon = nativeImage.createFromPath(iconPath).resize({ width: 22, height: 22 });
+    }
+  } catch (_) {}
+
+  if (!icon || icon.isEmpty()) {
+    icon = nativeImage.createEmpty();
+  }
+
+  appTray = new Tray(icon);
+  appTray.setToolTip('Eyqa - The AI Coworker');
+  updateTrayMenu();
+
+  appTray.on('click', () => {
+    if (!mainWindow) return;
+    if (mainWindow.isVisible()) {
+      if (mainWindow.isFocused()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.focus();
+      }
+    } else {
+      mainWindow.show();
+      mainWindow.focus();
+    }
+  });
+
+  // Ticker to update elapsed time every 2 seconds when tasks are running
+  setInterval(() => {
+    if (activeTaskMeta.size > 0) {
+      updateTrayMenu();
+    }
+  }, 2000);
+}
 
 function createWindow() {
   mainWindow = new BrowserWindow({
@@ -80,14 +224,27 @@ function createWindow() {
     mainWindow.show();
   });
 
+  mainWindow.on('close', (event) => {
+    if (!isQuitting) {
+      event.preventDefault();
+      mainWindow.hide();
+      return false;
+    }
+  });
+
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
 }
 
+app.on('before-quit', () => {
+  isQuitting = true;
+});
+
 app.whenReady().then(() => {
   setupIpcHandlers();
   createWindow();
+  createTray();
 
   // Automatically start embedded FCC background library in background
   fccService.start().then(res => {
@@ -99,13 +256,18 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
       createWindow();
+    } else if (mainWindow) {
+      mainWindow.show();
+      mainWindow.focus();
     }
   });
 });
 
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
+  if (isQuitting) {
+    if (process.platform !== 'darwin') {
+      app.quit();
+    }
   }
 });
 
@@ -390,6 +552,10 @@ function setupIpcHandlers() {
     return await getSkillsManager().installSkill(payload);
   });
 
+  ipcMain.handle('skills:uninstall', async (_, payload) => {
+    return await getSkillsManager().uninstallSkill(payload);
+  });
+
   // Snapshot Management
   ipcMain.handle('workspace:getSnapshots', (_, projectId, fileRelPath) => {
     const ws = getWorkspaceRootForProject(projectId);
@@ -441,6 +607,13 @@ function setupIpcHandlers() {
     const ac = new AbortController();
     activeTurnControllers.set(turnKey, ac);
 
+    const taskTitle = payload.sessionTitle || payload.title || (payload.userMessage ? payload.userMessage.slice(0, 28) : 'Chat Task');
+    activeTaskMeta.set(turnKey, {
+      title: taskTitle,
+      startTime: Date.now()
+    });
+    updateTrayMenu();
+
     const sender = event.sender;
 
     try {
@@ -455,28 +628,35 @@ function setupIpcHandlers() {
         forceWebSearch: payload.forceWebSearch === true,
         customPrompt: payload.customPrompt,
         onToken: (tok) => {
-          if (!ac.signal.aborted) sender.send('agent:stream-token', tok);
+          if (!ac.signal.aborted) sender.send('agent:stream-token', { sessionId: turnKey, token: tok });
         },
         onThought: (th) => {
-          if (!ac.signal.aborted) sender.send('agent:stream-thought', th);
+          if (!ac.signal.aborted) sender.send('agent:stream-thought', { sessionId: turnKey, thought: th });
         },
         onToolStart: (toolInfo) => {
-          if (!ac.signal.aborted) sender.send('agent:tool-start', toolInfo);
+          if (!ac.signal.aborted) sender.send('agent:tool-start', { sessionId: turnKey, tool: toolInfo });
         },
         onToolResult: (resInfo) => {
-          if (!ac.signal.aborted) sender.send('agent:tool-result', resInfo);
+          if (!ac.signal.aborted) sender.send('agent:tool-result', { sessionId: turnKey, result: resInfo });
         },
         onFallback: (fbInfo) => {
-          if (!ac.signal.aborted) sender.send('agent:fallback', fbInfo);
+          if (!ac.signal.aborted) sender.send('agent:fallback', { sessionId: turnKey, fallback: fbInfo });
         },
         onAskQuestion: (qData) => {
-          if (!ac.signal.aborted) sender.send('agent:ask-question', qData);
+          if (!ac.signal.aborted) sender.send('agent:ask-question', { sessionId: turnKey, question: qData });
         },
         onBrowserTakeover: (takeoverData) => {
-          if (!ac.signal.aborted) sender.send('agent:browser-takeover', takeoverData);
+          if (!ac.signal.aborted) sender.send('agent:browser-takeover', { sessionId: turnKey, takeover: takeoverData });
         },
         signal: ac.signal
       });
+
+      // Dispatch desktop notification if window is minimized, hidden, or not focused
+      if (result && !ac.signal.aborted) {
+        if (!mainWindow || !mainWindow.isVisible() || mainWindow.isMinimized() || !mainWindow.isFocused()) {
+          dispatchNativeNotification('Eyqa: Task Complete', `Finished response in "${taskTitle}"`, turnKey);
+        }
+      }
 
       return {
         success: true,
@@ -498,6 +678,8 @@ function setupIpcHandlers() {
       if (activeTurnControllers.get(turnKey) === ac) {
         activeTurnControllers.delete(turnKey);
       }
+      activeTaskMeta.delete(turnKey);
+      updateTrayMenu();
     }
   });
 
@@ -506,6 +688,8 @@ function setupIpcHandlers() {
     if (sessionId && activeTurnControllers.has(sessionId)) {
       activeTurnControllers.get(sessionId).abort();
       activeTurnControllers.delete(sessionId);
+      activeTaskMeta.delete(sessionId);
+      updateTrayMenu();
       stopped = true;
     } else {
       for (const [, controller] of activeTurnControllers.entries()) {
@@ -513,8 +697,16 @@ function setupIpcHandlers() {
         stopped = true;
       }
       activeTurnControllers.clear();
+      activeTaskMeta.clear();
+      updateTrayMenu();
     }
     return stopped;
+  });
+
+  // Native Notification IPC
+  ipcMain.handle('notification:show', (_, title, body, sessionId) => {
+    dispatchNativeNotification(title, body, sessionId);
+    return true;
   });
 
   // Embedded FCC Background Service IPC
@@ -537,6 +729,12 @@ function setupIpcHandlers() {
   });
 
   ipcMain.handle('window:close', () => {
-    if (mainWindow) mainWindow.close();
+    if (mainWindow) {
+      if (!isQuitting) {
+        mainWindow.hide();
+      } else {
+        mainWindow.close();
+      }
+    }
   });
 }

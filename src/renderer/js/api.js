@@ -392,6 +392,26 @@ export const api = {
     return { success: false };
   },
 
+  async uninstallSkill(skillName, workspacePath = null) {
+    if (isElectron && window.eyqaApi.uninstallSkill) {
+      return await window.eyqaApi.uninstallSkill({ skillName, workspacePath });
+    }
+    return { success: false };
+  },
+
+  showNotification(title, body, sessionId = null) {
+    if (isElectron && window.eyqaApi.showNotification) {
+      return window.eyqaApi.showNotification(title, body, sessionId);
+    }
+  },
+
+  onFocusSession(callback) {
+    if (isElectron && window.eyqaApi.onFocusSession) {
+      return window.eyqaApi.onFocusSession(callback);
+    }
+    return () => {};
+  },
+
   // Turn Execution
   async startTurn(payload, handlers = {}) {
     if (isElectron) {

@@ -17,7 +17,7 @@ class EyqaApp {
     this.projects = [];
     this.currentSession = null;
     this.attachedFile = null;
-    this.isGenerating = false;
+    this.runningTurns = new Map(); // sessionId -> { session, startTime, accumulatedContent, accumulatedThought, tools: [] }
     this.forceWebSearch = false;
     this.sidebarCollapsed = false;
     this.collapsedProjects = new Set();
@@ -25,6 +25,14 @@ class EyqaApp {
     // View Components
     this.chatView = null;
     this.settingsView = null;
+  }
+
+  get isGenerating() {
+    return this.runningTurns ? this.runningTurns.has(this.currentSession?.id) : false;
+  }
+
+  set isGenerating(_) {
+    // Backwards-compatible setter
   }
 
   async init() {
@@ -58,6 +66,7 @@ class EyqaApp {
       chatContainer,
       (msg, type) => this.showToast(msg, type)
     );
+    this.chatView.onRollbackTurn = (data) => this.handleRollbackTurn(data);
 
     this.settingsView = new SettingsView(
       settingsModal,
@@ -65,7 +74,26 @@ class EyqaApp {
       (newSettings) => this.onSettingsUpdated(newSettings)
     );
 
-    // 3. Setup UI Controls
+    // 3. Native Tray Focus Listener
+    api.onFocusSession((sessionId) => {
+      if (sessionId) {
+        this.selectSession(sessionId);
+      }
+    });
+
+    // 4. Live Sidebar Elapsed Timer Ticker
+    setInterval(() => {
+      if (this.runningTurns && this.runningTurns.size > 0) {
+        for (const [sId, turn] of this.runningTurns.entries()) {
+          const badge = document.querySelector(`.sidebar-running-badge[data-session-id="${sId}"]`);
+          if (badge) {
+            badge.textContent = `⚡ ${this._formatElapsed(turn.startTime)}`;
+          }
+        }
+      }
+    }, 1000);
+
+    // 5. Setup UI Controls
     this.setupSidebar();
     this.setupTopBar();
     this.setupDockInput();
@@ -73,11 +101,11 @@ class EyqaApp {
     this.setupFileLinks();
     this.setupImageLightbox();
 
-    // 4. Load Projects and Sessions
+    // 6. Load Projects and Sessions
     await this.loadSessions();
     await this.checkSetupRequired();
 
-    // 5. Select or create session
+    // 7. Select or create session
     if (this.sessions.length > 0) {
       await this.selectSession(this.sessions[0].id);
     } else if (this.projects.length > 0) {
@@ -439,16 +467,32 @@ class EyqaApp {
     });
   }
 
+  _formatElapsed(startTime) {
+    const sec = Math.max(0, Math.floor((Date.now() - startTime) / 1000));
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return m > 0 ? `${m}m ${s < 10 ? '0' : ''}${s}s` : `${s}s`;
+  }
+
   _renderSidebarItem(session, isProjectChild) {
     const isActive = this.currentSession && this.currentSession.id === session.id;
+    const isRunning = this.runningTurns && this.runningTurns.has(session.id);
     const title = session.title || 'New Chat';
 
+    let runningBadgeHtml = '';
+    if (isRunning) {
+      const turn = this.runningTurns.get(session.id);
+      const elapsed = this._formatElapsed(turn.startTime);
+      runningBadgeHtml = `<span class="sidebar-running-badge" data-session-id="${session.id}">⚡ ${elapsed}</span>`;
+    }
+
     return `
-      <div class="sidebar-item ${isActive ? 'active' : ''}" data-id="${session.id}" style="${isProjectChild ? 'padding-left: 28px;' : 'padding-left: 16px;'}">
+      <div class="sidebar-item ${isActive ? 'active' : ''} ${isRunning ? 'sidebar-item-running' : ''}" data-id="${session.id}" style="${isProjectChild ? 'padding-left: 28px;' : 'padding-left: 16px;'}">
         <div class="sidebar-item-body">
-          <span class="sidebar-item-icon">${icons.messageSquare}</span>
+          <span class="sidebar-item-icon">${isRunning ? (icons.sparkles || icons.messageSquare) : icons.messageSquare}</span>
           <span class="sidebar-item-title">${this._escape(title)}</span>
         </div>
+        ${runningBadgeHtml}
         <button class="sidebar-item-delete" title="Delete conversation">${icons.trash}</button>
       </div>
     `;
@@ -464,8 +508,9 @@ class EyqaApp {
       // Check if current session was completely empty (no messages and no draft)
       const hasMessages = Array.isArray(this.currentSession.messages) && this.currentSession.messages.length > 0;
       const hasDraft = typeof currentDraft === 'string' && currentDraft.trim().length > 0;
+      const isCurrentlyRunning = this.runningTurns && this.runningTurns.has(this.currentSession.id);
 
-      if (!hasMessages && !hasDraft) {
+      if (!hasMessages && !hasDraft && !isCurrentlyRunning) {
         // Remove empty ghost chat that was never used
         try {
           await api.deleteSession(this.currentSession.id);
@@ -479,14 +524,39 @@ class EyqaApp {
       }
     }
 
-    const fullSession = await api.getSession(id);
+    // If target session is running in memory, keep the live reference
+    let fullSession = null;
+    if (this.runningTurns && this.runningTurns.has(id)) {
+      fullSession = this.runningTurns.get(id).session;
+    } else {
+      fullSession = await api.getSession(id);
+    }
     if (!fullSession) return;
 
     this.currentSession = fullSession;
     this.chatView.setSession(this.currentSession);
+
+    // If target session is currently running, reconnect streaming view!
+    if (this.runningTurns && this.runningTurns.has(id)) {
+      const turn = this.runningTurns.get(id);
+      this.chatView.startStream(null);
+      if (turn.accumulatedThought) {
+        this.chatView.appendThought(turn.accumulatedThought);
+      }
+      if (turn.tools && turn.tools.length > 0) {
+        for (const t of turn.tools) {
+          this.chatView.addToolBadge(t);
+        }
+      }
+      if (turn.accumulatedContent) {
+        this.chatView.appendToken(turn.accumulatedContent);
+      }
+    }
+
     this.renderSidebarLists();
     this.updateTopBar();
     this.updateDockMeta();
+    this._updateGeneratingState();
 
     // Restore draft text into the textarea
     const input = document.getElementById('chatInputTextarea');
@@ -892,9 +962,13 @@ class EyqaApp {
 
     // Stop button
     stopBtn?.addEventListener('click', async () => {
-      await api.stopTurn(this.currentSession?.id);
-      this.isGenerating = false;
-      this._updateGeneratingState();
+      const sId = this.currentSession?.id;
+      if (sId) {
+        await api.stopTurn(sId);
+        this.runningTurns.delete(sId);
+        this._updateGeneratingState();
+        this.renderSidebarLists();
+      }
     });
 
     // Attach File
@@ -1023,6 +1097,11 @@ class EyqaApp {
   }
 
   async _runTurn(content, attachment = null, shouldAddUserMessage = true) {
+    if (!this.currentSession) return;
+
+    const targetSession = this.currentSession;
+    const targetSessionId = targetSession.id;
+
     if (shouldAddUserMessage) {
       const userMessage = {
         role: 'user',
@@ -1031,28 +1110,41 @@ class EyqaApp {
         timestamp: Date.now()
       };
 
-      if (!this.currentSession.messages) {
-        this.currentSession.messages = [];
+      if (!targetSession.messages) {
+        targetSession.messages = [];
       }
-      this.currentSession.messages.push(userMessage);
+      targetSession.messages.push(userMessage);
 
       // Save title immediately so sidebar reflects it
-      await api.saveSession(this.currentSession);
+      await api.saveSession(targetSession);
       await this.loadSessions();
       this.updateTopBar();
 
-      // Start streaming in ChatView with new user bubble
-      this.chatView.startStream(userMessage);
+      // If user is currently looking at this session, stream into view
+      if (this.currentSession?.id === targetSessionId) {
+        this.chatView.startStream(userMessage);
+      }
     } else {
-      // Regenerate: starts streaming assistant turn without duplicating user bubble
-      this.chatView.startStream(null);
+      // Regenerate
+      if (this.currentSession?.id === targetSessionId) {
+        this.chatView.startStream(null);
+      }
     }
 
-    this.isGenerating = true;
+    // Register active running turn in memory
+    const turnState = {
+      session: targetSession,
+      startTime: Date.now(),
+      accumulatedContent: '',
+      accumulatedThought: '',
+      tools: []
+    };
+    this.runningTurns.set(targetSessionId, turnState);
+    this.renderSidebarLists();
     this._updateGeneratingState();
 
     // Determine effective provider and models (Global Default vs Project Override)
-    const currentProj = this.projects.find(p => p.id === this.currentSession?.projectId);
+    const currentProj = this.projects.find(p => p.id === targetSession?.projectId);
     let effectiveProviderId = this.settings?.engineMode === 'free_pool' ? 'free_pool' : this.settings?.activeProviderId;
     let customPrompt = currentProj?.customPrompt || '';
 
@@ -1069,59 +1161,154 @@ class EyqaApp {
 
     try {
       const response = await api.startTurn({
-        sessionId: this.currentSession.id,
-        messages: this.currentSession.messages,
+        sessionId: targetSessionId,
+        sessionTitle: targetSession.title || 'Chat Task',
+        messages: targetSession.messages,
         userMessage: content,
-        folderPath: this.currentSession.folderPath || null,
+        folderPath: targetSession.folderPath || null,
         modeId: 'chat',
         providerId: effectiveProviderId,
         customPrompt,
         forceWebSearch: this.forceWebSearch
       }, {
-        onToken: (tok) => this.chatView.appendToken(tok),
-        onThought: (th) => this.chatView.appendThought(th),
-        onToolStart: (ti) => this.chatView.addToolBadge(ti),
-        onToolResult: (res) => this.chatView.updateToolResult(res),
-        onAskQuestion: (qData) => this.chatView.renderQuestionCard(qData),
-        onBrowserTakeover: (takeoverData) => this.chatView.renderBrowserTakeoverCard(takeoverData),
+        onToken: (tokData) => {
+          const sId = (typeof tokData === 'object' && tokData?.sessionId) ? tokData.sessionId : targetSessionId;
+          const token = (typeof tokData === 'object' && tokData?.token !== undefined) ? tokData.token : tokData;
+          const t = this.runningTurns.get(sId);
+          if (t) t.accumulatedContent += token;
+          if (this.currentSession?.id === sId) {
+            this.chatView.appendToken(token);
+          }
+        },
+        onThought: (thData) => {
+          const sId = (typeof thData === 'object' && thData?.sessionId) ? thData.sessionId : targetSessionId;
+          const thought = (typeof thData === 'object' && thData?.thought !== undefined) ? thData.thought : thData;
+          const t = this.runningTurns.get(sId);
+          if (t) t.accumulatedThought += thought;
+          if (this.currentSession?.id === sId) {
+            this.chatView.appendThought(thought);
+          }
+        },
+        onToolStart: (toolData) => {
+          const sId = (typeof toolData === 'object' && toolData?.sessionId) ? toolData.sessionId : targetSessionId;
+          const tool = (typeof toolData === 'object' && toolData?.tool !== undefined) ? toolData.tool : toolData;
+          const t = this.runningTurns.get(sId);
+          if (t) t.tools.push(tool);
+          if (this.currentSession?.id === sId) {
+            this.chatView.addToolBadge(tool);
+          }
+        },
+        onToolResult: (resData) => {
+          const sId = (typeof resData === 'object' && resData?.sessionId) ? resData.sessionId : targetSessionId;
+          const result = (typeof resData === 'object' && resData?.result !== undefined) ? resData.result : resData;
+          if (this.currentSession?.id === sId) {
+            this.chatView.updateToolResult(result);
+          }
+        },
+        onAskQuestion: (qData) => {
+          const sId = (typeof qData === 'object' && qData?.sessionId) ? qData.sessionId : targetSessionId;
+          const question = (typeof qData === 'object' && qData?.question !== undefined) ? qData.question : qData;
+          if (this.currentSession?.id === sId) {
+            this.chatView.renderQuestionCard(question);
+          }
+        },
+        onBrowserTakeover: (takeoverData) => {
+          const sId = (typeof takeoverData === 'object' && takeoverData?.sessionId) ? takeoverData.sessionId : targetSessionId;
+          const takeover = (typeof takeoverData === 'object' && takeoverData?.takeover !== undefined) ? takeoverData.takeover : takeoverData;
+          if (this.currentSession?.id === sId) {
+            this.chatView.renderBrowserTakeoverCard(takeover);
+          }
+        },
         onFallback: () => {
           // Silent background failover without disrupting chat
         }
       });
 
+      const t = this.runningTurns.get(targetSessionId);
+      const finalContent = response?.result?.content || t?.accumulatedContent || '';
+      const finalThought = response?.result?.thought || t?.accumulatedThought || '';
+      const finalTools = response?.result?.tools || t?.tools || [];
+
       if (response && response.result) {
         const assistantMessage = {
           role: 'assistant',
-          content: response.result.content || this.chatView.accumulatedContent,
-          thought: response.result.thought || this.chatView.accumulatedThought,
-          tools: response.result.tools || [],
+          content: finalContent,
+          thought: finalThought,
+          tools: finalTools,
           provider: response.result.provider,
           timestamp: Date.now()
         };
 
-        this.currentSession.messages.push(assistantMessage);
-        await api.saveSession(this.currentSession);
+        targetSession.messages.push(assistantMessage);
+        await api.saveSession(targetSession);
         await this.loadSessions();
 
-        this.chatView.finishStream(response.result);
+        if (this.currentSession?.id === targetSessionId) {
+          this.chatView.finishStream(response.result);
+        } else {
+          // Completed in background while user was viewing another chat!
+          this.showToast(`Completed response in "${targetSession.title}".`, 'success');
+          api.showNotification('Eyqa: Task Complete', `Finished response in "${targetSession.title}"`, targetSessionId);
+        }
       } else if (response && response.error) {
-        this.chatView.showStreamError(response.error);
+        if (this.currentSession?.id === targetSessionId) {
+          this.chatView.showStreamError(response.error);
+        }
         this.showToast(response.error, 'error');
       }
     } catch (err) {
-      this.chatView.showStreamError(err.message);
+      if (this.currentSession?.id === targetSessionId) {
+        this.chatView.showStreamError(err.message);
+      }
       this.showToast(`Generation failed: ${err.message}`, 'error');
     } finally {
-      this.isGenerating = false;
+      this.runningTurns.delete(targetSessionId);
       this._updateGeneratingState();
+      this.renderSidebarLists();
+    }
+  }
+
+  async handleRollbackTurn({ msgIndex, newContent, shouldSend, shouldRevertFiles, subsequentSnapshots }) {
+    if (!this.currentSession) return;
+
+    // 1. Revert snapshots if requested
+    if (shouldRevertFiles && subsequentSnapshots && subsequentSnapshots.length > 0) {
+      for (const snap of subsequentSnapshots) {
+        try {
+          await api.revertSnapshot(snap.id, this.currentSession.projectId);
+        } catch (e) {
+          console.warn('[Rollback] Could not revert snapshot', snap.id, e);
+        }
+      }
+      this.showToast(`Reverted ${subsequentSnapshots.length} file snapshot(s).`, 'info');
+    }
+
+    // 2. Truncate session messages to msgIndex
+    this.currentSession.messages = this.currentSession.messages.slice(0, msgIndex);
+    await api.saveSession(this.currentSession);
+
+    if (shouldSend) {
+      await this._runTurn(newContent, null, true);
+    } else {
+      const textarea = document.getElementById('chatInputTextarea');
+      if (textarea) {
+        textarea.value = newContent;
+        textarea.focus();
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(38, Math.min(textarea.scrollHeight, 180)) + 'px';
+        this.updateSendBtnState();
+      }
+      this.chatView.render();
+      this.showToast(`Rolled back conversation to message #${msgIndex + 1}.`, 'info');
     }
   }
 
   _updateGeneratingState() {
+    const isCurrentBusy = Boolean(this.runningTurns && this.runningTurns.has(this.currentSession?.id));
     const sendBtn = document.getElementById('btnSendMessage');
     const stopBtn = document.getElementById('btnStopGeneration');
-    if (sendBtn) sendBtn.hidden = this.isGenerating;
-    if (stopBtn) stopBtn.hidden = !this.isGenerating;
+    if (sendBtn) sendBtn.hidden = isCurrentBusy;
+    if (stopBtn) stopBtn.hidden = !isCurrentBusy;
   }
 
   updateModelLabels() {

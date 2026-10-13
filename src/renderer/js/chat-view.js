@@ -27,6 +27,7 @@ export class ChatView {
     this._processHasAutoFolded = false;
     this._activeDecisionSummary = '';
     this._stepCount = 0;
+    this.onRollbackTurn = null;
   }
 
   setSession(session) {
@@ -232,7 +233,7 @@ export class ChatView {
               <button class="user-action-btn btn-copy-msg" data-content="${encodeURIComponent(msg.content)}" title="Copy prompt">
                 ${icons.copy}
               </button>
-              <button class="user-action-btn btn-edit-prompt" data-content="${encodeURIComponent(msg.content)}" title="Edit in message box">
+              <button class="user-action-btn btn-edit-prompt" data-index="${idx}" data-content="${encodeURIComponent(msg.content)}" title="Rollback and edit this turn">
                 ${icons.edit}
               </button>
               ${timeStr ? `<span class="message-time-pill">${timeStr}</span>` : ''}
@@ -429,9 +430,11 @@ export class ChatView {
 
     const listEl = scrollEl.querySelector('.chat-messages-list');
     if (userMessage) {
+      const msgIdx = this.currentSession?.messages?.length ? this.currentSession.messages.length - 1 : 0;
       const timeStr = this._formatTime(userMessage.timestamp || Date.now());
       const userRow = document.createElement('div');
       userRow.className = 'message-row user-row';
+      userRow.dataset.index = String(msgIdx);
       userRow.innerHTML = `
         <div class="message-bubble user-bubble">
           ${userMessage.attachment ? `
@@ -444,7 +447,7 @@ export class ChatView {
             <button class="user-action-btn btn-copy-msg" data-content="${encodeURIComponent(userMessage.content)}" title="Copy prompt">
               ${icons.copy}
             </button>
-            <button class="user-action-btn btn-edit-prompt" data-content="${encodeURIComponent(userMessage.content)}" title="Edit in message box">
+            <button class="user-action-btn btn-edit-prompt" data-index="${msgIdx}" data-content="${encodeURIComponent(userMessage.content)}" title="Rollback and edit this turn">
               ${icons.edit}
             </button>
             ${timeStr ? `<span class="message-time-pill">${timeStr}</span>` : ''}
@@ -1037,6 +1040,119 @@ export class ChatView {
     }
   }
 
+  async openRollbackWidget(msgIndex, rowElement, content) {
+    if (!this.currentSession || !this.currentSession.messages) return;
+
+    const totalMessages = this.currentSession.messages.length;
+    const discardCount = Math.max(0, totalMessages - 1 - msgIndex);
+    const targetMsg = this.currentSession.messages[msgIndex];
+    const msgTimestamp = targetMsg?.timestamp || 0;
+
+    // Query file snapshot history for active workspace
+    let snapshots = [];
+    if (this.currentSession.projectId) {
+      try {
+        snapshots = await api.getSnapshots(this.currentSession.projectId);
+      } catch (_) {}
+    }
+
+    const subsequentSnapshots = (snapshots || []).filter(s => s.timestamp >= msgTimestamp);
+    const modifiedFiles = [...new Set(subsequentSnapshots.map(s => s.fileRelPath))];
+
+    const originalBubble = rowElement.innerHTML;
+
+    rowElement.innerHTML = `
+      <div class="message-bubble rollback-card">
+        <div class="rollback-card-header">
+          <span class="rollback-icon">⚠️</span>
+          <div>
+            <strong class="rollback-title">Rollback Conversation &amp; Edit Message</strong>
+            <div class="rollback-subtitle">Review consequences before rolling back to turn #${msgIndex + 1}</div>
+          </div>
+        </div>
+
+        <div class="rollback-card-impact">
+          <div class="rollback-impact-item">
+            <span class="impact-badge">${discardCount} Messages</span>
+            <div class="impact-desc">
+              <strong>${discardCount} subsequent message(s)</strong> (assistant responses, thinking processes, tool execution logs) will be removed.
+            </div>
+          </div>
+
+          ${subsequentSnapshots.length > 0 ? `
+            <div class="rollback-impact-item">
+              <span class="impact-badge badge-warning">${subsequentSnapshots.length} Snapshot(s)</span>
+              <div class="impact-desc">
+                <div><strong>${subsequentSnapshots.length} file change(s)</strong> made in workspace since this turn:</div>
+                <div class="rollback-files-list">${modifiedFiles.map(f => `<code>${this._escape(f)}</code>`).join(' ')}</div>
+                <label class="rollback-revert-checkbox-label">
+                  <input type="checkbox" class="rollback-revert-checkbox" checked />
+                  <span>Revert workspace files back to pre-turn snapshot states</span>
+                </label>
+              </div>
+            </div>
+          ` : `
+            <div class="rollback-impact-item">
+              <span class="impact-badge badge-neutral">0 File Edits</span>
+              <div class="impact-desc">No workspace files were modified after this turn.</div>
+            </div>
+          `}
+        </div>
+
+        <div class="rollback-textarea-box">
+          <label class="rollback-input-label">Edit prompt:</label>
+          <textarea class="rollback-edit-textarea">${this._escape(content)}</textarea>
+        </div>
+
+        <div class="rollback-card-actions">
+          <button type="button" class="btn-cancel-rollback">Cancel</button>
+          <button type="button" class="btn-confirm-rollback-input">Rollback &amp; Move to Input</button>
+          <button type="button" class="btn-confirm-rollback-send">Rollback &amp; Run Turn →</button>
+        </div>
+      </div>
+    `;
+
+    const cancelBtn = rowElement.querySelector('.btn-cancel-rollback');
+    const toInputBtn = rowElement.querySelector('.btn-confirm-rollback-input');
+    const sendBtn = rowElement.querySelector('.btn-confirm-rollback-send');
+    const textarea = rowElement.querySelector('.rollback-edit-textarea');
+    const revertCheckbox = rowElement.querySelector('.rollback-revert-checkbox');
+
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.max(64, Math.min(textarea.scrollHeight, 180)) + 'px';
+      textarea.focus();
+      textarea.setSelectionRange(textarea.value.length, textarea.value.length);
+      textarea.addEventListener('input', () => {
+        textarea.style.height = 'auto';
+        textarea.style.height = Math.max(64, Math.min(textarea.scrollHeight, 180)) + 'px';
+      });
+    }
+
+    cancelBtn?.addEventListener('click', () => {
+      rowElement.innerHTML = originalBubble;
+      this._attachMessageEvents();
+    });
+
+    const executeRollback = async (shouldSend) => {
+      const newText = textarea?.value?.trim() || content;
+      const shouldRevertFiles = Boolean(revertCheckbox ? revertCheckbox.checked : false);
+
+      if (this.onRollbackTurn) {
+        await this.onRollbackTurn({
+          msgIndex,
+          newContent: newText,
+          shouldSend,
+          shouldRevertFiles,
+          subsequentSnapshots
+        });
+      }
+    };
+
+    toInputBtn?.addEventListener('click', () => executeRollback(false));
+    sendBtn?.addEventListener('click', () => executeRollback(true));
+  }
+
   _attachMessageEvents() {
     // Unified Process & Actions accordion toggles
     this.container.querySelectorAll('.turn-process-header').forEach(btn => {
@@ -1149,6 +1265,7 @@ export class ChatView {
         setTimeout(() => URL.revokeObjectURL(blobUrl), 10000);
       };
     });
+
     // Copy message text with dynamic checkmark feedback
     this.container.querySelectorAll('.btn-copy-msg').forEach(btn => {
       btn.onclick = async (e) => {
@@ -1169,17 +1286,24 @@ export class ChatView {
       };
     });
 
-    // Edit prompt into input box
+    // Rollback & Edit prompt
     this.container.querySelectorAll('.btn-edit-prompt').forEach(btn => {
-      btn.onclick = (e) => {
+      btn.onclick = async (e) => {
         const content = decodeURIComponent(e.currentTarget.dataset.content || '');
-        const textarea = document.getElementById('chatInputTextarea');
-        if (textarea) {
-          textarea.value = content;
-          textarea.focus();
-          textarea.style.height = 'auto';
-          textarea.style.height = Math.max(38, Math.min(textarea.scrollHeight, 180)) + 'px';
-          document.getElementById('btnSendMessage')?.classList.add('active');
+        const row = e.currentTarget.closest('.message-row');
+        const rawIdx = e.currentTarget.dataset.index || row?.dataset?.index;
+        const msgIdx = rawIdx !== undefined ? parseInt(rawIdx, 10) : -1;
+        if (msgIdx >= 0 && row) {
+          await this.openRollbackWidget(msgIdx, row, content);
+        } else {
+          const textarea = document.getElementById('chatInputTextarea');
+          if (textarea) {
+            textarea.value = content;
+            textarea.focus();
+            textarea.style.height = 'auto';
+            textarea.style.height = Math.max(38, Math.min(textarea.scrollHeight, 180)) + 'px';
+            document.getElementById('btnSendMessage')?.classList.add('active');
+          }
         }
       };
     });
