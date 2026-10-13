@@ -1105,19 +1105,11 @@ class EyqaApp {
 
         this.chatView.finishStream(response.result);
       } else if (response && response.error) {
-        if (this.chatView.streamingAssistantEl && !this.chatView.accumulatedContent) {
-          this.chatView.streamingAssistantEl.remove();
-        } else {
-          this.chatView.finishStream({});
-        }
+        this.chatView.showStreamError(response.error);
         this.showToast(response.error, 'error');
       }
     } catch (err) {
-      if (this.chatView.streamingAssistantEl && !this.chatView.accumulatedContent) {
-        this.chatView.streamingAssistantEl.remove();
-      } else {
-        this.chatView.finishStream({});
-      }
+      this.chatView.showStreamError(err.message);
       this.showToast(`Generation failed: ${err.message}`, 'error');
     } finally {
       this.isGenerating = false;

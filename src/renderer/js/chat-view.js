@@ -981,6 +981,22 @@ export class ChatView {
     this.scrollToBottom();
   }
 
+  showStreamError(errorMessage) {
+    if (!this.streamingAssistantEl) return;
+    this.streamingAssistantEl.classList.remove('streaming');
+    const pulse = this.streamingAssistantEl.querySelector('.streaming-pulse-indicator');
+    if (pulse) pulse.remove();
+
+    if (this.streamingContentEl) {
+      this.streamingContentEl.innerHTML = `
+        <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.3); border-radius: 8px; padding: 12px; color: #f87171; font-size: 13px; line-height: 1.5; margin-top: 8px;">
+          <strong>Generation Error:</strong> ${this._escape(errorMessage || 'Unknown error')}
+        </div>
+      `;
+    }
+    this.scrollToBottom();
+  }
+
   setupScrollListener() {
     const scrollEl = document.getElementById('chatMessagesScroll');
     const scrollBtn = document.getElementById('btnScrollToBottom');

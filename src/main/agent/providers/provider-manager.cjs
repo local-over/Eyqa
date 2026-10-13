@@ -131,8 +131,16 @@ class ProviderManager {
           this.cooldowns.set('fcc_proxy', Date.now() + 45000);
         }
 
-        // Silent direct backup to direct configured providers without spamming chat
-        const directBackups = this.getOrderedProviders(config.activeProviderId || 'gemini');
+        // Silent direct backup across all ready free pool candidates and ordered fallbacks
+        const poolCandidates = this.getFreePoolCandidates();
+        const ordered = this.getOrderedProviders(config.activeProviderId || 'groq');
+        const candidateMap = new Map();
+        for (const p of [...poolCandidates, ...ordered]) {
+          if (p && p.id && p.id !== 'fcc_proxy' && !candidateMap.has(p.id)) {
+            candidateMap.set(p.id, p);
+          }
+        }
+        const directBackups = Array.from(candidateMap.values());
         for (const candidate of directBackups) {
           if (candidate.id === 'fcc_proxy') continue;
           const cdUntil = this.cooldowns.get(candidate.id) || 0;

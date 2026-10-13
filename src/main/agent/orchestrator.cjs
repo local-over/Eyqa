@@ -86,6 +86,7 @@ class AgentOrchestrator {
     enableTools = true,
     forceWebSearch = false,
     customPrompt = null,
+    customTools = null,
     onToken,
     onThought,
     onToolStart,
