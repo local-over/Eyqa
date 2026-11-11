@@ -1,0 +1,63 @@
+{
+  "name": "eyqa",
+  "version": "0.9.0-beta",
+  "description": "Eyqa - The Everyday AI Coworker (Early Beta) with Native Monochromatic UI, Multi-Provider Free AI Tiers, and Agentic Workflow Automation",
+  "main": "src/main/index.cjs",
+  "scripts": {
+    "start": "electron .",
+    "web": "node src/server.cjs",
+    "test:agent": "node -e \"const { searchWeb } = require('./src/main/agent/tools/web-search.cjs'); searchWeb('test', 1).then(console.log);\"",
+    "dist": "electron-builder",
+    "dist:linux": "electron-builder --linux AppImage deb",
+    "dist:mac": "electron-builder --mac dmg zip",
+    "dist:win": "electron-builder --win nsis portable",
+    "export:env": "node scripts/export-env.cjs"
+  },
+  "keywords": [
+    "ai",
+    "coworker",
+    "chatgpt",
+    "claude",
+    "free-models",
+    "desktop-app",
+    "agents"
+  ],
+  "author": {
+    "name": "Eyqa Team",
+    "email": "team@eyqa.app"
+  },
+  "license": "AGPL-3.0-only",
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "build": {
+    "appId": "com.eyqa.app",
+    "productName": "Eyqa",
+    "directories": {
+      "output": "dist"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "maintainer": "team@eyqa.app",
+      "category": "Utility",
+      "icon": "assets/logo/eyqa-logo.png"
+    },
+    "mac": {
+      "target": [
+        "dmg",
+        "zip"
+      ],
+      "category": "public.app-category.productivity"
+    },
+    "win": {
+      "target": [
+        "nsis",
+        "portable"
+      ]
+    }
+  }
+}

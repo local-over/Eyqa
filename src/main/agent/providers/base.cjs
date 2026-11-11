@@ -1,0 +1,782 @@
+/**
+ * Eyqa Base Provider Definitions & Tool Schemas
+ * Full suite of Eyqa native agent tools:
+ * - Web search & HTTP fetch
+ * - Chromium agentic browser navigation, action, and full page extraction
+ * - Sandboxed workspace listing, reading, and full writing
+ * - Precision surgical code editing (replace_file_content) and sliced viewer (view_file)
+ * - Process execution (run_command) and background task management (manage_task)
+ * - Image generation (generate_image via Pollinations Flux & OpenAI DALL-E 3)
+ * - Human-in-the-loop decision modals (ask_question)
+ * - Subagent swarm delegation (invoke_subagent)
+ * - Background task scheduler & timers (schedule)
+ */
+
+const WEB_TOOL_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'web_search',
+      description: 'Search the live web using DuckDuckGo to find real-time information, news, documentation, or facts.',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'The search keywords or query.'
+          },
+          maxResults: {
+            type: 'integer',
+            description: 'Maximum number of results to retrieve (default: 5).'
+          }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'web_fetch',
+      description: 'Fetch and extract clean readable text from a specific public webpage URL.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'The full HTTP or HTTPS URL to read.'
+          }
+        },
+        required: ['url']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_navigate',
+      description: 'Navigate the headless Chromium browser to any web page URL and wait for DOM and network idle.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'The full HTTP or HTTPS URL to load.'
+          },
+          timeoutMs: {
+            type: 'integer',
+            description: 'Optional navigation timeout in milliseconds (default: 20000).'
+          }
+        },
+        required: ['url']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'browser_action',
+      description: 'Interact with the currently loaded webpage: click elements, type into inputs, scroll the viewport, execute JavaScript, or capture screenshots.',
+      parameters: {
+        type: 'object',
+        properties: {
+          action: {
+            type: 'string',
+            enum: ['click', 'type', 'scroll', 'evaluate', 'screenshot'],
+            description: 'The browser interaction to execute.'
+          },
+          selector: {
+            type: 'string',
+            description: 'CSS selector of the target element (required for "click" and "type").'
+          },
+          text: {
+            type: 'string',
+            description: 'The text to type into the target element (required for "type").'
+          },
+          script: {
+            type: 'string',
+            description: 'JavaScript code snippet to execute on the page (required for "evaluate").'
+          },
+          scrollDeltaY: {
+            type: 'integer',
+            description: 'Number of vertical pixels to scroll (positive for down, negative for up; default: 500).'
+          }
+        },
+        required: ['action']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'read_browser_page',
+      description: 'Load a web page inside Chromium, execute client-side JavaScript/SPAs, and return readable markdown, interactive form controls, and an optional high-resolution screenshot.',
+      parameters: {
+        type: 'object',
+        properties: {
+          url: {
+            type: 'string',
+            description: 'URL to navigate to and inspect (optional if already on the desired page).'
+          },
+          extractMarkdown: {
+            type: 'boolean',
+            description: 'Whether to convert page DOM into clean markdown (default: true).'
+          },
+          takeScreenshot: {
+            type: 'boolean',
+            description: 'Whether to capture an offscreen visual screenshot (default: true).'
+          },
+          maxChars: {
+            type: 'integer',
+            description: 'Maximum characters of text to return (default: 20000).'
+          }
+        }
+      }
+    }
+  }
+];
+
+const WORKSPACE_TOOL_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'workspace_list',
+      description: 'List files and directories inside the active project folder.',
+      parameters: {
+        type: 'object',
+        properties: {
+          subDirectory: {
+            type: 'string',
+            description: 'Optional subfolder inside the project folder to inspect (leave empty for root).'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'workspace_read_file',
+      description: 'Read the complete contents of a text file inside the active project folder.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filePath: {
+            type: 'string',
+            description: 'Relative path of the file to read.'
+          }
+        },
+        required: ['filePath']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'workspace_write_file',
+      description: 'Create or completely overwrite a file inside the active project folder.',
+      parameters: {
+        type: 'object',
+        properties: {
+          filePath: {
+            type: 'string',
+            description: 'Relative path where the file should be saved.'
+          },
+          content: {
+            type: 'string',
+            description: 'The complete file contents to write.'
+          }
+        },
+        required: ['filePath', 'content']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'replace_file_content',
+      description: 'Precision search-and-replace for file content without rewriting the whole file. Validates unique occurrence within the range or entire file, produces a unified diff, and automatically generates a timestamped revertible snapshot in .eyqa/snapshots.',
+      parameters: {
+        type: 'object',
+        properties: {
+          TargetFile: {
+            type: 'string',
+            description: 'Relative path of the target file in the project workspace.'
+          },
+          TargetContent: {
+            type: 'string',
+            description: 'The exact string snippet to be replaced. Must match indentation, whitespace, and newlines exactly.'
+          },
+          ReplacementContent: {
+            type: 'string',
+            description: 'The new string snippet to replace TargetContent with.'
+          },
+          StartLine: {
+            type: 'integer',
+            description: 'Optional 1-indexed start line to restrict the search region.'
+          },
+          EndLine: {
+            type: 'integer',
+            description: 'Optional 1-indexed end line to restrict the search region.'
+          },
+          AllowMultiple: {
+            type: 'boolean',
+            description: 'Set to true only if all identical occurrences in the file or range should be replaced. Defaults to false.'
+          }
+        },
+        required: ['TargetFile', 'TargetContent', 'ReplacementContent']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'view_file',
+      description: 'Read and inspect file contents with line slicing, byte offset pagination for large files, and automatic image/media detection with base64 data URIs.',
+      parameters: {
+        type: 'object',
+        properties: {
+          AbsolutePath: {
+            type: 'string',
+            description: 'Relative or absolute path of the file to view within the workspace.'
+          },
+          StartLine: {
+            type: 'integer',
+            description: 'Optional 1-indexed start line to slice file output.'
+          },
+          EndLine: {
+            type: 'integer',
+            description: 'Optional 1-indexed end line to slice file output.'
+          },
+          ContentOffset: {
+            type: 'integer',
+            description: 'Optional byte offset to paginate through large files.'
+          }
+        },
+        required: ['AbsolutePath']
+      }
+    }
+  }
+];
+
+const TERMINAL_TOOL_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'run_command',
+      description: 'Execute a terminal command directly in the active project workspace. Supports synchronous build/test/lint commands, git inspections, package installation, and long-running background daemons (e.g., dev servers, watchers).',
+      parameters: {
+        type: 'object',
+        properties: {
+          CommandLine: {
+            type: 'string',
+            description: 'The exact command-line string to execute in the system shell.'
+          },
+          Cwd: {
+            type: 'string',
+            description: 'Optional current working directory for command execution. Defaults to the active project root directory.'
+          },
+          IsDaemon: {
+            type: 'boolean',
+            description: 'Set to true for long-running processes (e.g. dev servers, watch processes, file watchers) that should continue running in the background. Leave false (default) for standard commands expected to finish.'
+          },
+          WaitMsBeforeAsync: {
+            type: 'integer',
+            description: 'Number of milliseconds to wait synchronously for output before transitioning to a background task (default: 30000ms for commands, 1500ms for daemons). Maximum: 60000ms.'
+          }
+        },
+        required: ['CommandLine']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'manage_task',
+      description: 'Inspect, manage, or terminate running background processes and daemons initiated via run_command.',
+      parameters: {
+        type: 'object',
+        properties: {
+          Action: {
+            type: 'string',
+            enum: ['list', 'status', 'kill', 'send_input'],
+            description: 'The management operation to perform: "list" (show all tasks), "status" (inspect task status and recent logs), "kill" (gracefully terminate task), or "send_input" (pipe interactive text to stdin).'
+          },
+          TaskId: {
+            type: 'string',
+            description: 'The unique Task ID returned by run_command. Required for "status", "kill", and "send_input".'
+          },
+          Input: {
+            type: 'string',
+            description: 'The text input to pipe into the stdin of the running task. Required when Action is "send_input".'
+          }
+        },
+        required: ['Action']
+      }
+    }
+  }
+];
+
+const IMAGE_TOOL_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'generate_image',
+      description: 'Generate high-resolution visual art, mockups, or diagrams from text prompts using Free Pollinations Flux (zero keys required) or OpenAI DALL-E 3.',
+      parameters: {
+        type: 'object',
+        properties: {
+          prompt: {
+            type: 'string',
+            description: 'Detailed description of the image to create.'
+          },
+          imageName: {
+            type: 'string',
+            description: 'Short file name identifier (e.g. "hero_landing", "logo_minimal").'
+          },
+          size: {
+            type: 'string',
+            enum: ['1024x1024', '1024x1792', '1792x1024', '512x512'],
+            description: 'Resolution of generated image (default: 1024x1024).'
+          },
+          style: {
+            type: 'string',
+            enum: ['natural', 'vivid', 'photorealistic', 'anime', '3d'],
+            description: 'Visual artistic style.'
+          }
+        },
+        required: ['prompt']
+      }
+    }
+  }
+];
+
+const INTERACTIVE_DECISION_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'ask_question',
+      description: 'Present an interactive decision card with selectable option buttons and write-in feedback to the user, pausing until they submit their choice.',
+      parameters: {
+        type: 'object',
+        properties: {
+          questions: {
+            type: 'array',
+            description: 'List of decisions/questions to pose to the user.',
+            items: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', description: 'Unique question key (e.g. "arch_choice")' },
+                question: { type: 'string', description: 'The question prompt text' },
+                options: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'List of choices the user can click'
+                },
+                is_multi_select: {
+                  type: 'boolean',
+                  description: 'Whether multiple options can be checked (default false)'
+                },
+                allow_custom: {
+                  type: 'boolean',
+                  description: 'Whether to provide a write-in input field (default true)'
+                }
+              },
+              required: ['question', 'options']
+            }
+          }
+        },
+        required: ['questions']
+      }
+    }
+  }
+];
+
+const PLANNING_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'track_task_plan',
+      description: 'Initialize or update the structured execution plan, milestone checklist, and progress roadmap for this mission. ALWAYS invoke this first for complex, multi-step, research, or coding tasks to anchor execution, track subtasks, and eliminate hallucination.',
+      parameters: {
+        type: 'object',
+        properties: {
+          planTitle: {
+            type: 'string',
+            description: 'Clear, concise title of the overall mission or execution plan.'
+          },
+          tasks: {
+            type: 'array',
+            description: 'Milestones and subtasks in the execution plan.',
+            items: {
+              type: 'object',
+              properties: {
+                id: {
+                  type: 'string',
+                  description: 'Unique identifier for the task, e.g. "task-1", "task-2".'
+                },
+                title: {
+                  type: 'string',
+                  description: 'Clear, actionable description of the milestone.'
+                },
+                status: {
+                  type: 'string',
+                  enum: ['pending', 'in_progress', 'completed', 'failed'],
+                  description: 'Current status of the milestone.'
+                },
+                details: {
+                  type: 'string',
+                  description: 'Execution details, assigned subagent, or verified outcome.'
+                }
+              },
+              required: ['id', 'title', 'status']
+            }
+          }
+        },
+        required: ['planTitle', 'tasks']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_task_status',
+      description: 'Update the progress status and verified results of an individual milestone in the active plan as work progresses. Call this immediately as each task starts (in_progress) and completes (completed) with a concrete summary of verified results.',
+      parameters: {
+        type: 'object',
+        properties: {
+          taskId: {
+            type: 'string',
+            description: 'ID of the milestone to update (must match an id from track_task_plan).'
+          },
+          status: {
+            type: 'string',
+            enum: ['pending', 'in_progress', 'completed', 'failed'],
+            description: 'New status for the milestone.'
+          },
+          resultSummary: {
+            type: 'string',
+            description: 'Concise summary of verified results, data points, or evidence gathered for this milestone.'
+          }
+        },
+        required: ['taskId', 'status']
+      }
+    }
+  }
+];
+
+const SUBAGENT_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'invoke_subagent',
+      description: 'Spawn one or more specialized background worker subagents (e.g. researcher, searcher, code_auditor, analyst, writer) with targeted assignments. Each subagent runs its own autonomous tool loop (web search, browser navigation, workspace files) and returns un-truncated, verified findings. You can run multiple subagents in parallel to research different angles simultaneously, inspect their findings, and loop as needed.',
+      parameters: {
+        type: 'object',
+        properties: {
+          Subagents: {
+            type: 'array',
+            description: 'List of subagent workers to instantiate and run in parallel.',
+            items: {
+              type: 'object',
+              properties: {
+                Role: {
+                  type: 'string',
+                  enum: ['researcher', 'searcher', 'code_auditor', 'designer', 'tester', 'analyst', 'writer'],
+                  description: 'Specialized role for this subagent.'
+                },
+                TypeName: {
+                  type: 'string',
+                  description: 'Descriptive title for this worker (e.g. "Primary Tech Documentation Searcher", "Competitor Pricing Analyst")'
+                },
+                Prompt: {
+                  type: 'string',
+                  description: 'Detailed instructions and specific research or audit assignment for the subagent.'
+                }
+              },
+              required: ['Role', 'Prompt']
+            }
+          }
+        },
+        required: ['Subagents']
+      }
+    }
+  }
+];
+
+const SCHEDULE_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'schedule',
+      description: 'Schedule a one-shot countdown timer or recurring cron job in the background.',
+      parameters: {
+        type: 'object',
+        properties: {
+          DurationSeconds: {
+            type: 'integer',
+            description: 'Seconds to wait before triggering (for one-shot reminders).'
+          },
+          CronExpression: {
+            type: 'string',
+            description: '5-field cron expression for recurring tasks (e.g. "*/5 * * * *").'
+          },
+          Prompt: {
+            type: 'string',
+            description: 'The notification message or agent prompt to trigger.'
+          },
+          IsDaemon: {
+            type: 'boolean',
+            description: 'Whether the schedule runs independently as a background daemon.'
+          }
+        },
+        required: ['Prompt']
+      }
+    }
+  }
+];
+
+const BROWSER_TAKEOVER_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'request_browser_takeover',
+      description: 'Request the human user to take control of the browser window. Use this when encountering captchas (Cloudflare, reCAPTCHA), 2FA verification, login screens, bot detections, or when you need user approval/action on the webpage. Shows the browser window to the user, logs their interactions, and automatically resumes once they click "Hand Back to Eyqa".',
+      parameters: {
+        type: 'object',
+        properties: {
+          reason: {
+            type: 'string',
+            description: 'Short headline explaining the issue (e.g. "Cloudflare Verification / Captcha Required", "GitHub Login Required").'
+          },
+          problemDescription: {
+            type: 'string',
+            description: 'Detailed instructions telling the user what specific action to complete on screen.'
+          },
+          url: {
+            type: 'string',
+            description: 'Optional URL to load before handing over control.'
+          }
+        },
+        required: ['reason', 'problemDescription']
+      }
+    }
+  }
+];
+
+const MEMORY_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'update_user_memory',
+      description: 'Save or update personal facts about the user in you.me (~/.config/eyqa/you.me). Use this whenever the user shares their name, background/role, what they like, hobbies, or personal preferences. Strictly for the human user (not project codebase).',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: {
+            type: 'string',
+            description: "The user's name or preferred nickname."
+          },
+          background: {
+            type: 'string',
+            description: "The user's background, profession, domain expertise, or role."
+          },
+          likes: {
+            type: 'string',
+            description: "What the user likes, enjoys, or personal preferences (e.g. tools, formatting style, hobbies)."
+          },
+          notes: {
+            type: 'string',
+            description: 'Any additional personal note or fact about the user.'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_project_memory',
+      description: 'Save architectural notes, codebase conventions, or project-specific context to this project\'s .eyqa memory. Only available when working within a project workspace.',
+      parameters: {
+        type: 'object',
+        properties: {
+          notes: {
+            type: 'string',
+            description: 'Conventions, decisions, or guidelines specific to this project.'
+          },
+          architecture: {
+            type: 'string',
+            description: 'Key architecture, stack components, or workflow structure for this project.'
+          }
+        }
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'update_memory',
+      description: 'General memory updater. Automatically routes user facts (name, background, likes) to you.me and project architecture to project memory.',
+      parameters: {
+        type: 'object',
+        properties: {
+          name: { type: 'string', description: "User's name" },
+          background: { type: 'string', description: "User's background/role" },
+          likes: { type: 'string', description: "User's preferences or what they like" },
+          topic: { type: 'string', description: 'Memory topic' },
+          information: { type: 'string', description: 'Fact or note to record' }
+        }
+      }
+    }
+  }
+];
+
+const SKILLS_SCHEMAS = [
+  {
+    type: 'function',
+    function: {
+      name: 'search_skills_hub',
+      description: 'Search the AI Skills registry (https://skills-hub.ai) and local skills catalog for specialized capabilities (e.g. DARE engine, pdf processing, data analysis, seo, ui wireframes).',
+      parameters: {
+        type: 'object',
+        properties: {
+          query: {
+            type: 'string',
+            description: 'Search query describing the task or skill needed.'
+          }
+        },
+        required: ['query']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'install_skill',
+      description: 'Download and install an AI skill from Skills Hub into Eyqa\'s local skills catalog (~/.config/eyqa/skills/).',
+      parameters: {
+        type: 'object',
+        properties: {
+          skillName: {
+            type: 'string',
+            description: 'The identifier or name of the skill to install.'
+          },
+          sourceUrl: {
+            type: 'string',
+            description: 'Optional URL or registry source.'
+          }
+        },
+        required: ['skillName']
+      }
+    }
+  },
+  {
+    type: 'function',
+    function: {
+      name: 'use_skill',
+      description: 'Activate an installed AI skill and load its instructions into the current session context.',
+      parameters: {
+        type: 'object',
+        properties: {
+          skillName: {
+            type: 'string',
+            description: 'Name of the installed skill to activate.'
+          }
+        },
+        required: ['skillName']
+      }
+    }
+  }
+];
+
+// Unified TOOL_SCHEMAS
+const TOOL_SCHEMAS = [
+  ...PLANNING_SCHEMAS,
+  ...WEB_TOOL_SCHEMAS,
+  ...BROWSER_TAKEOVER_SCHEMAS,
+  ...WORKSPACE_TOOL_SCHEMAS,
+  ...TERMINAL_TOOL_SCHEMAS,
+  ...IMAGE_TOOL_SCHEMAS,
+  ...INTERACTIVE_DECISION_SCHEMAS,
+  ...SUBAGENT_SCHEMAS,
+  ...SCHEDULE_SCHEMAS,
+  ...MEMORY_SCHEMAS,
+  ...SKILLS_SCHEMAS
+];
+
+/**
+ * Filter tools tailored specifically for specialized background subagent workers.
+ * Excludes interactive questions, user handoff takeovers, and recursive subagents.
+ */
+function getSubagentTools(role = 'researcher', hasWorkspace = false) {
+  const wsReadTools = hasWorkspace ? [
+    WORKSPACE_TOOL_SCHEMAS.find(t => t.function.name === 'workspace_read_file'),
+    WORKSPACE_TOOL_SCHEMAS.find(t => t.function.name === 'workspace_list'),
+    WORKSPACE_TOOL_SCHEMAS.find(t => t.function.name === 'view_file')
+  ].filter(Boolean) : [];
+
+  switch (role) {
+    case 'researcher':
+    case 'searcher':
+      return [
+        ...WEB_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+    case 'code_auditor':
+      return [
+        ...wsReadTools,
+        ...TERMINAL_TOOL_SCHEMAS
+      ];
+    case 'tester':
+      return [
+        ...TERMINAL_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+    case 'designer':
+      return [
+        ...IMAGE_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+    case 'analyst':
+    case 'writer':
+      return [
+        ...WEB_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+    default:
+      return [
+        ...WEB_TOOL_SCHEMAS,
+        ...wsReadTools
+      ];
+  }
+}
+
+// Gemini function declaration format
+const GEMINI_FUNCTION_DECLARATIONS = TOOL_SCHEMAS.map(tool => ({
+  name: tool.function.name,
+  description: tool.function.description,
+  parameters: tool.function.parameters
+}));
+
+// Anthropic tool definition format
+const ANTHROPIC_TOOL_DEFINITIONS = TOOL_SCHEMAS.map(tool => ({
+  name: tool.function.name,
+  description: tool.function.description,
+  input_schema: tool.function.parameters
+}));
+
+module.exports = {
+  PLANNING_SCHEMAS,
+  WEB_TOOL_SCHEMAS,
+  WORKSPACE_TOOL_SCHEMAS,
+  TERMINAL_TOOL_SCHEMAS,
+  IMAGE_TOOL_SCHEMAS,
+  INTERACTIVE_DECISION_SCHEMAS,
+  SUBAGENT_SCHEMAS,
+  SCHEDULE_SCHEMAS,
+  TOOL_SCHEMAS,
+  GEMINI_FUNCTION_DECLARATIONS,
+  ANTHROPIC_TOOL_DEFINITIONS,
+  getSubagentTools
+};
